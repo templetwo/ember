@@ -1,0 +1,9 @@
+[project]
+name = "temple-ember"
+version = "0.1.0"
+description = "Offline corpus checks and nuisance baselines for Ember's P0"
+requires-python = "==3.10.*"
+dependencies = ["jsonschema==4.25.0"]
+
+[tool.uv]
+package = false

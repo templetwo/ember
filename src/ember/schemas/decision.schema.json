@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ember:decision:0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decision", "rationale", "cited_claim_ids", "factual"],
+  "properties": {
+    "decision": {"enum": ["OPEN", "PAUSE", "WITNESS"]},
+    "rationale": {"type": "string", "minLength": 1},
+    "cited_claim_ids": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 128}
+    },
+    "factual": {"type": "boolean"}
+  },
+  "allOf": [{
+    "if": {"properties": {"factual": {"const": true}}},
+    "then": {"properties": {"cited_claim_ids": {"minItems": 1}}}
+  }]
+}

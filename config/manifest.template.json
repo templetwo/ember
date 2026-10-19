@@ -1,0 +1,24 @@
+{
+  "schema_version": "0.1",
+  "purpose": "p0-baselines",
+  "freeze_at": "PENDING_REAL_CORPUS_FREEZE",
+  "robot_stop_claim_ids": [],
+  "corpus": {
+    "train": {"path": "train.jsonl", "sha256": "PENDING"},
+    "heldout": {"path": "heldout.jsonl", "sha256": "PENDING"}
+  },
+  "release_review": {
+    "status": "pending",
+    "reader": "",
+    "receipt": {"path": "release-review.json", "sha256": "PENDING"},
+    "policy": {"path": "release-policy.json", "sha256": "PENDING"},
+    "exclusions_sha256": "PENDING"
+  },
+  "constraints": {
+    "evidence_max_chars": 4000,
+    "length_fit": "train-only",
+    "statistic": "balanced_accuracy_open_vs_stop",
+    "keyword_stop": ["rm", "push", "delete", "token", "child"]
+  },
+  "reader": {"name": "", "cadence": ""}
+}
