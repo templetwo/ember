@@ -14,7 +14,7 @@ uv sync --locked --python 3.10.12
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-Every CLI command runs the offline selftest first. `scripts/ember` selects the repository's absolute `.venv/bin/python` path. It never loads MLX, a model, a grant, or a chronicle client.
+Every `scripts/ember` command runs the offline selftest first. `scripts/ember` selects the repository's absolute `.venv/bin/python` path. It never loads MLX, a model, a grant, or a chronicle client.
 
 After a real corpus has been filtered, reviewed, and frozen:
 
@@ -53,3 +53,5 @@ To refresh the local metadata inventory without loading a model or reading recor
 This collector uses the local repository layout found during the initial audit; absent paths are reported rather than searched across personal archives. It writes only under the ignored `local/` directory. `scripts/check_public.py` inspects staged file bytes for unexpected paths, artifacts, and several credential shapes. It is a scaffold publication check, not the corpus release filter.
 
 The unit tests use synthetic protocol fixtures created in temporary directories. They are software checks, never training examples or evidence of model competence. Receipt presence is checked mechanically; semantic support, negations, declare-before-verify, and the other model acceptance tests still require their own evaluation work.
+
+HQ can use the separate [Studio environment probe](docs/studio-environment-check.md) to inspect its existing interpreter and run one disposable synthetic LoRA step. Its numerical run is pending. The [MacBook follow-up](docs/macbook-followup-2026-10-19.md) records the fetched renderer status and links the CK receipt note.
