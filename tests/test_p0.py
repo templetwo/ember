@@ -390,6 +390,20 @@ class ProvenanceTests(unittest.TestCase):
         self.assertTrue(provenance["working_tree_dirty"])
         self.assertEqual(provenance["git_warnings"], ["git unavailable: no git"])
 
+    def test_git_warnings_redact_this_machines_paths(self):
+        import ember.cli as cli
+        root, home = str(cli.ROOT), str(Path.home())
+        stderr = (f"warning: could not open directory '{root}/locked/': Permission denied\n"
+                  f"warning: unable to access '{home}/.gitconfig': Permission denied\n")
+        with patch.object(cli.subprocess, "run", side_effect=self._git_double(status_stderr=stderr)):
+            provenance = cli.runtime_provenance()
+        self.assertTrue(provenance["working_tree_dirty"])
+        self.assertEqual(provenance["git_warnings"], [
+            "warning: could not open directory '<repo>/locked/': Permission denied",
+            "warning: unable to access '~/.gitconfig': Permission denied"])
+        self.assertNotIn(root, json.dumps(provenance))
+        self.assertNotIn(home, json.dumps(provenance))
+
     def test_provenance_test_doubles_pass_non_git_commands_through(self):
         import ember.cli as cli
         with patch.object(cli.subprocess, "run", side_effect=self._git_double()):

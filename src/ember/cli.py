@@ -33,6 +33,11 @@ def _git(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True)
 
 
+def _redact(line: str) -> str:
+    # Reports travel to a second seat: keep the reason, drop this machine's absolute paths.
+    return line.replace(str(ROOT), "<repo>").replace(str(Path.home()), "~")
+
+
 def runtime_provenance() -> dict:
     files = sorted((ROOT / "src/ember").rglob("*.py")) + sorted((ROOT / "src/ember/schemas").glob("*.json"))
     files += [ROOT / name for name in ("pyproject.toml", "uv.lock", ".python-version", "scripts/ember.py", "scripts/ember", "docs/corpus-exclusions.md")]
@@ -43,10 +48,10 @@ def runtime_provenance() -> dict:
         status = _git("status", "--porcelain", "--untracked-files=normal")
     except OSError as exc:
         revision, dirty = "uncommitted", True
-        warnings.append(f"git unavailable: {exc}")
+        warnings.append(_redact(f"git unavailable: {exc}"))
     else:
         for completed in (head, status):
-            warnings.extend(line for line in completed.stderr.splitlines() if line.strip())
+            warnings.extend(_redact(line) for line in completed.stderr.splitlines() if line.strip())
             if completed.returncode != 0:
                 warnings.append(f"git {completed.args[3]} exited {completed.returncode}")
         revision = head.stdout.strip() if head.returncode == 0 and head.stdout.strip() else "uncommitted"
