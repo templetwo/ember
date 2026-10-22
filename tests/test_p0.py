@@ -206,14 +206,23 @@ class ManifestTests(unittest.TestCase):
             m, rows, sha = load_manifest(path)
             self.assertEqual(len(rows["heldout"]), 3)
             output = base / "report.json"
-            self.assertEqual(main(["baselines", "--manifest", str(path), "--output", str(output)]), 0)
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                self.assertEqual(main(["baselines", "--manifest", str(path), "--output", str(output)]), 0)
+            recorded = json.loads(stdout.getvalue())
+            self.assertEqual(recorded["status"], "recorded")
+            self.assertEqual(recorded["report_sha256"], digest(output.read_bytes()))
             report = json.loads(output.read_text())
             self.assertEqual(report["manifest_sha256"], sha)
             self.assertEqual(report["second_seat_verification"], "pending")
             self.assertEqual(report["constraints"], manifest["constraints"])
             self.assertEqual(len(report["result"]["baselines"]["always-stop"]["predictions"]), 3)
             self.assertNotIn("Synthetic protocol evidence", output.read_text())
-            self.assertEqual(main(["baselines", "--manifest", str(path), "--output", str(output)]), 2)
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr):
+                self.assertEqual(main(["baselines", "--manifest", str(path), "--output", str(output)]), 2)
+            self.assertEqual(stderr.getvalue(), "ember: refused: FileExistsError\n")
+            self.assertNotIn(str(output), stderr.getvalue())
 
     def test_modified_quote_invalidates_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
