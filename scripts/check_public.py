@@ -17,6 +17,7 @@ PATTERNS = {
     "private key": re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
     "bare 43-character stem": re.compile(rb"(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])"),
     "absolute user-home path": re.compile(rb"/(?:Users|home)/[^\s/]+/"),
+    "Homebrew interpreter path": re.compile(rb"/opt/home" rb"brew/"),
 }
 
 

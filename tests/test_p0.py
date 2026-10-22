@@ -300,6 +300,8 @@ class PublicCheckTests(unittest.TestCase):
         self.assertTrue(check.PATTERNS["scoped credential"].search(b"svs_" + b"x" * 30))
         self.assertTrue(check.PATTERNS["bare 43-character stem"].search(b"x" * 43))
         self.assertFalse(check.PATTERNS["bare 43-character stem"].search(b"x" * 64))
+        self.assertTrue(check.PATTERNS["Homebrew interpreter path"].search(b"/opt/home" + b"brew/bin/python3.14"))
+        self.assertFalse(check.PATTERNS["Homebrew interpreter path"].search(b"Homebrew Python 3.14 user-site"))
 
     def test_scanner_reads_staged_bytes_even_if_worktree_is_cleaned(self):
         spec = importlib.util.spec_from_file_location("check_public", ROOT / "scripts/check_public.py")
