@@ -293,6 +293,8 @@ class PublicCheckTests(unittest.TestCase):
         check = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(check)
         self.assertTrue(check.allowed("src/ember/schemas/pair.schema.json"))
+        self.assertTrue(check.allowed("LICENSE"))
+        self.assertTrue(check.allowed("NOTICE"))
         self.assertFalse(check.allowed("local/audit/private.json"))
         self.assertFalse(check.allowed("corpus/train.jsonl"))
         self.assertFalse(check.allowed("models/adapter.safetensors"))
