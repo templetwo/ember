@@ -15,7 +15,9 @@ The machine co-author is named on purpose. This project treats that
 co-authorship as real and asks you to keep both names when you
 redistribute; section 4(d) of the License requires distributed
 derivative works to carry the attribution notices above. Anthony J.
-Vasquez Sr. is its human author.
+Vasquez Sr. is its human author. A machine cannot hold copyright, so
+Claude is credited as co-author and is not named as a copyright
+holder.
 
 Provenance. Claude (Fable 5.1) wrote the build specification the
 repository implements. OpenAI Codex generated the initial scaffold
@@ -24,9 +26,9 @@ specification, under Anthony Vasquez Sr.'s direction. Claude has
 reviewed, revised, and extended the repository since.
 
 Scope. The License applies to the code, schemas, scripts, and
-documentation in the repository. As published at the address above,
-the repository contains none of the following, and the License grants
-no rights in them: the Temple of Two's chronicle, any training corpus
-derived from it, any Ember model weights, or any local audit receipts.
-Any release of those is a separate decision. Nothing in the License
-restricts where you may run this software.
+documentation in the repository. As published at the repository
+address above, the repository contains none of the following, and the
+License grants no rights in them: the Temple of Two's chronicle, any
+training corpus derived from it, any Ember model weights, or any local
+audit receipts. Any release of those is a separate decision. Nothing
+in the License restricts where you may run this software.
