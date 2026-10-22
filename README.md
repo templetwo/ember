@@ -50,7 +50,7 @@ To refresh the local metadata inventory without loading a model or reading recor
 .venv/bin/python scripts/audit_local.py --output local/audit/pickup.json --reader 'NAMED_READER' --cadence 'before corpus freeze'
 ```
 
-This collector uses the local repository layout found during the initial audit; absent paths are reported rather than searched across personal archives. It writes only under the ignored `local/` directory. `scripts/check_public.py` inspects staged file bytes for unexpected paths, artifacts, and several credential shapes. It is a scaffold publication check, not the corpus release filter.
+This collector uses the local repository layout found during the initial audit; absent paths are reported rather than searched across personal archives. It writes only under the ignored `local/` directory. `scripts/check_public.py` reads every tracked file's bytes from the git index and refuses unexpected paths, binary or oversized artifacts, several credential shapes, absolute user-home paths, and Homebrew interpreter paths. It is a scaffold publication check, not the corpus release filter.
 
 The unit tests use synthetic protocol fixtures created in temporary directories. They are software checks, never training examples or evidence of model competence. Receipt presence is checked mechanically; semantic support, negations, declare-before-verify, and the other model acceptance tests still require their own evaluation work.
 
