@@ -40,7 +40,7 @@ The keyword predictor uses case-insensitive whole words: `rm`, `push`, `delete`,
 
 The first real corpus cut and the mirror's release filter have not been imported. The evaluator requires a reviewer receipt bound to the exact corpus and policy bytes; this attestation does not itself prove that private material was excluded. Query-window selection and release scanning belong upstream and remain to be connected.
 
-The Ground count, historical judged labels, Studio environment, Jetson load cycle, and independent reproduction remain open. No checkpoint is selected. No training, tokenizer audit, model inference, model smoke test, or deployment approval is inferred from this scaffold.
+On 2026-10-19 the Ground count, historical judged labels, Studio environment, Jetson load cycle, and independent reproduction remained open. Update 2026-10-21: HQ has since completed the independent reproduction and the Studio environment check and read the Ground count and the August 30 labels (Sovereign Stack claim `af874e64`; details in the [phase checklist](docs/p0-checklist.md)); the Jetson load cycle remains open. No checkpoint is selected. No training, tokenizer audit, model inference, model smoke test, or deployment approval is inferred from this scaffold.
 
 Read the [local audit](docs/local-audit-2026-10-19.md), [phase checklist](docs/p0-checklist.md), and [verbatim exclusion rules](docs/corpus-exclusions.md). Real corpus data, audit receipts, credentials, model files, and runs belong in ignored local directories.
 
@@ -54,4 +54,4 @@ This collector uses the local repository layout found during the initial audit; 
 
 The unit tests use synthetic protocol fixtures created in temporary directories. They are software checks, never training examples or evidence of model competence. Receipt presence is checked mechanically; semantic support, negations, declare-before-verify, and the other model acceptance tests still require their own evaluation work.
 
-HQ can use the separate [Studio environment probe](docs/studio-environment-check.md) to inspect its existing interpreter and run one disposable synthetic LoRA step. Its numerical run is pending. The [MacBook follow-up](docs/macbook-followup-2026-10-19.md) records the fetched renderer status and links the CK receipt note.
+HQ can use the separate [Studio environment probe](docs/studio-environment-check.md) to inspect its existing interpreter and run one disposable synthetic LoRA step. Its numerical run was pending on 2026-10-19; HQ ran it once that afternoon and it passed (claim `af874e64`; see the probe doc's update). The [MacBook follow-up](docs/macbook-followup-2026-10-19.md) records the fetched renderer status and links the CK receipt note.

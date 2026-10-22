@@ -1,6 +1,6 @@
 # Studio environment probe for HQ
 
-Reader: HQ. Cadence: run and review before the P1 environment approval. Status: prepared on the MacBook; the real MLX step has not been executed by this seat. No Studio or Jetson connection was made.
+Reader: HQ. Cadence: run and review before the P1 environment approval. Status: prepared on the MacBook; the real MLX step has not been executed by this seat. No Studio or Jetson connection was made. Update 2026-10-21: HQ executed the probe once on the Studio on 2026-10-19 and it passed (MLX 0.32.2 / mlx-lm 0.31.3, GPU, 8 of 8 checks; claim `af874e64`); the receipt lives on the Studio, not in this repository.
 
 Use the absolute path of the **existing Studio interpreter under review**, and the absolute path of this script in the Studio checkout. The evaluator's `.venv` is not the training environment. No installation or environment upgrade is part of the probe.
 

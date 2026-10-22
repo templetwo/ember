@@ -13,12 +13,12 @@ Initial state: **pre-P0; no real corpus cut or held-out baseline number**.
 ## Before a real P0 exit
 
 - [ ] Read current mirror release pipeline and its 17-path withheld policy; integrate its needle and credential scans without opening protected bodies.
-- [ ] Confirm the Ground ledger count and span from the authorized surface.
-- [ ] HQ: use the August 30 judged labels from the Studio filing identified by Fable; the MacBook log is a different surface and is not their source.
+- [x] Confirm the Ground ledger count and span from the authorized surface. Done by HQ on the Studio, 2026-10-19 (claim `af874e64`): 40 entries, 39 catches, events 2026-05-03 to 2026-10-04; one entry breaks the leading-tag rule.
+- [ ] HQ: use the August 30 judged labels from the Studio filing identified by Fable; the MacBook log is a different surface and is not their source. Update 2026-10-21: HQ located them on 2026-10-19 (claim `af874e64`): the 39 are credential-paste incidents with 0 true positives and the 11 are rm-rf-wildcard rows (9 false positives, 2 correct), with per-row labels in the Studio workflow journal; `compass_log` keeps a rolling 30-day window and has no judge column on any machine. Using them in pairing is still open.
 - [ ] Freeze the time cut, list the robot-stop claim IDs, exclude letters, and apply the handle placeholder pending ruling.
 - [ ] Produce record-derived pairs under the specified authoring/review terms; every negation gets its named review.
 - [ ] Validate class balance and freeze the reviewed manifest/release receipt.
-- [ ] Establish the single Studio MLX environment by absolute path and test the intended version pair there.
+- [x] Establish the single Studio MLX environment by absolute path and test the intended version pair there. Done by HQ on 2026-10-19 (claim `af874e64`): the probe passed under HQ's chosen absolute Homebrew Python 3.14 interpreter with MLX 0.32.2 and mlx-lm 0.31.3 on the GPU, 8 of 8 step checks; login shells there still resolve `python3` elsewhere, so the absolute path is the environment.
 - [ ] Run all three nuisance baselines on a real heldout set; retain every prediction, constraint, and denominator.
 - [ ] Have a second seat reproduce those numbers from the frozen inputs on another substrate.
 - [ ] Verify the Jetson's zero-OOM load/evict/reload cycle with its pinned existing base and eviction barrier, within applicable approvals.
@@ -31,6 +31,6 @@ No checkpoint is chosen. Checkpoint choice, tokenizer audit, inference, model sm
 
 The six reserved rulings remain open: delegation placement, substrate trust, write scope, letters in weights, handle treatment, and approval grouping. Ember has no chronicle write lane and no robot motion lane. P1 model scoring, sealed harness probes, entropy comparison, Studio/Jetson parity, commissioning, and P3 are unimplemented.
 
-Every new artifact needs a named reader and cadence. The next local audit is read when work resumes or before the first corpus cut. Run reports carry their own named reader/cadence. No independent verification is claimed by this scaffold.
+Every new artifact needs a named reader and cadence. The next local audit is read when work resumes or before the first corpus cut. Run reports carry their own named reader/cadence. No independent verification is claimed by this scaffold. Update 2026-10-21: independent verification of the scaffold's tests and selftest now exists (HQ, claim `af874e64`); no verification of any corpus or model result exists. When a Stack claim resolves an item on this list, the next MacBook seat folds it into these docs with the claim id and the date, and earlier wording stays as history. The repository is a public surface, so each such fold lands at Anthony's word.
 
-The current MacBook lane prepares the [Studio environment probe](studio-environment-check.md) and reads existing CK receipts. HQ owns the corpus, Ground count, Studio filing, checkpoint and training work. A Claude seat will reproduce the original 34 protocol tests; that reproduction remains pending.
+The current MacBook lane prepares the [Studio environment probe](studio-environment-check.md) and reads existing CK receipts. HQ owns the corpus, Ground count, Studio filing, checkpoint and training work. A Claude seat will reproduce the original 34 protocol tests; that reproduction remains pending. Update 2026-10-21: done. HQ (Claude, Mac Studio) reproduced the 34 tests at `319450b` on 2026-10-19 with the project's unittest runner, with selftest and `check_public.py` passing (claim `af874e64`); that is the Tier 2 second-seat check for the scaffold. A MacBook re-run on 2026-10-21 at `7fb7bad` (45 tests) is the same substrate and does not count as a second seat.
