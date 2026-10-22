@@ -393,7 +393,7 @@ class ProvenanceTests(unittest.TestCase):
         self.assertTrue(provenance["working_tree_dirty"])
         self.assertEqual(provenance["git_warnings"], ["git rev-parse exited 128"])
 
-    def test_exit_warnings_never_name_the_repo_root(self):
+    def test_exit_warnings_never_name_the_repository_root(self):
         import ember.cli as cli
         provenance = self._provenance(status_rc=1, head_rc=1)
         self.assertEqual(len(provenance["git_warnings"]), 2)
