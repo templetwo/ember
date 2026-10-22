@@ -28,18 +28,33 @@ def selftest() -> dict:
             "jsonschema": importlib.metadata.version("jsonschema"), "scope": "offline evaluator; no MLX or model test"}
 
 
+def _git(*args: str) -> subprocess.CompletedProcess:
+    # stderr is captured, never discarded: a warning from git means the inspection was incomplete.
+    return subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True)
+
+
 def runtime_provenance() -> dict:
     files = sorted((ROOT / "src/ember").rglob("*.py")) + sorted((ROOT / "src/ember/schemas").glob("*.json"))
     files += [ROOT / name for name in ("pyproject.toml", "uv.lock", ".python-version", "scripts/ember.py", "scripts/ember", "docs/corpus-exclusions.md")]
     hashes = {str(p.relative_to(ROOT)): digest(p.read_bytes()) for p in files}
+    warnings: list[str] = []
     try:
-        revision = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], stderr=subprocess.DEVNULL, text=True).strip()
-        dirty = bool(subprocess.check_output(["git", "-C", str(ROOT), "status", "--porcelain", "--untracked-files=normal"], stderr=subprocess.DEVNULL, text=True).strip())
-    except (OSError, subprocess.CalledProcessError):
+        head = _git("rev-parse", "HEAD")
+        status = _git("status", "--porcelain", "--untracked-files=normal")
+    except OSError as exc:
         revision, dirty = "uncommitted", True
+        warnings.append(f"git unavailable: {exc}")
+    else:
+        for completed in (head, status):
+            warnings.extend(line for line in completed.stderr.splitlines() if line.strip())
+            if completed.returncode != 0:
+                warnings.append(f"git {completed.args[3]} exited {completed.returncode}")
+        revision = head.stdout.strip() if head.returncode == 0 and head.stdout.strip() else "uncommitted"
+        # Conservative: a tree git could not fully inspect is reported dirty, and the reason travels with the report.
+        dirty = bool(status.stdout.strip()) or bool(warnings)
     packages = {name: importlib.metadata.version(name) for name in
                 ("jsonschema", "attrs", "jsonschema-specifications", "referencing", "rpds-py")}
-    return {"git_revision": revision, "working_tree_dirty": dirty, "code_sha256": hashes,
+    return {"git_revision": revision, "working_tree_dirty": dirty, "git_warnings": warnings, "code_sha256": hashes,
             "packages": packages, "platform": platform.platform(), "machine": platform.machine()}
 
 

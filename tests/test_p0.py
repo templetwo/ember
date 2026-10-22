@@ -320,29 +320,82 @@ class PublicCheckTests(unittest.TestCase):
 
 
 class ProvenanceTests(unittest.TestCase):
-    def test_git_calls_never_write_to_the_console(self):
+    """Provenance must stay quiet on the console and honest in the report.
+
+    The doubles below patch ``subprocess.run`` on the shared module, so they pass every
+    non-git command through to the real function: ``platform`` probes its own uname via
+    ``subprocess`` and caches the answer process-wide, and a blanket fake was found to
+    leave ``platform.processor()`` empty for the rest of the interpreter.
+    """
+
+    @staticmethod
+    def _completed(argv, stdout="", stderr="", returncode=0):
+        return subprocess.CompletedProcess(argv, returncode, stdout=stdout, stderr=stderr)
+
+    def _git_double(self, status_stdout="", status_stderr="", status_rc=0, calls=None):
+        real_run = subprocess.run
+
+        def fake_run(argv, **kwargs):
+            if argv[0] != "git":
+                return real_run(argv, **kwargs)
+            if calls is not None:
+                calls.append((argv, kwargs))
+            if argv[-2:] == ["rev-parse", "HEAD"]:
+                return self._completed(argv, stdout="abc123\n")
+            return self._completed(argv, stdout=status_stdout, stderr=status_stderr, returncode=status_rc)
+
+        return fake_run
+
+    def test_git_calls_capture_stderr_and_never_write_to_the_console(self):
         import ember.cli as cli
         calls = []
-
-        def fake_check_output(argv, **kwargs):
-            calls.append((argv, kwargs))
-            return "abc123\n" if argv[-2:] == ["rev-parse", "HEAD"] else ""
-
-        with patch.object(cli.subprocess, "check_output", side_effect=fake_check_output):
+        out, err = io.StringIO(), io.StringIO()
+        with patch.object(cli.subprocess, "run", side_effect=self._git_double(calls=calls)), \
+                contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             provenance = cli.runtime_provenance()
         self.assertEqual(provenance["git_revision"], "abc123")
         self.assertFalse(provenance["working_tree_dirty"])
+        self.assertEqual(provenance["git_warnings"], [])
+        self.assertEqual((out.getvalue(), err.getvalue()), ("", ""))
         git_calls = [kwargs for argv, kwargs in calls if argv[0] == "git"]
         self.assertEqual(len(git_calls), 2)
         for kwargs in git_calls:
-            self.assertEqual(kwargs.get("stderr"), subprocess.DEVNULL)
+            self.assertTrue(kwargs.get("capture_output"), "stderr must be captured, not discarded")
+            self.assertNotEqual(kwargs.get("stderr"), subprocess.DEVNULL)
+
+    def test_git_warnings_mark_the_tree_dirty_without_console_output(self):
+        import ember.cli as cli
+        warning = "warning: could not open directory 'locked/': Permission denied"
+        out, err = io.StringIO(), io.StringIO()
+        with patch.object(cli.subprocess, "run", side_effect=self._git_double(status_stderr=warning + "\n")), \
+                contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            provenance = cli.runtime_provenance()
+        self.assertEqual(provenance["git_revision"], "abc123")
+        self.assertTrue(provenance["working_tree_dirty"], "an incomplete inspection must not read as clean")
+        self.assertEqual(provenance["git_warnings"], [warning])
+        self.assertEqual((out.getvalue(), err.getvalue()), ("", ""))
 
     def test_provenance_falls_back_when_git_is_unavailable(self):
         import ember.cli as cli
-        with patch.object(cli.subprocess, "check_output", side_effect=OSError("no git")):
+        real_run = subprocess.run
+
+        def no_git(argv, **kwargs):
+            if argv[0] == "git":
+                raise OSError("no git")
+            return real_run(argv, **kwargs)
+
+        with patch.object(cli.subprocess, "run", side_effect=no_git):
             provenance = cli.runtime_provenance()
         self.assertEqual(provenance["git_revision"], "uncommitted")
         self.assertTrue(provenance["working_tree_dirty"])
+        self.assertEqual(provenance["git_warnings"], ["git unavailable: no git"])
+
+    def test_provenance_test_doubles_pass_non_git_commands_through(self):
+        import ember.cli as cli
+        with patch.object(cli.subprocess, "run", side_effect=self._git_double()):
+            probe = cli.subprocess.run(["uname", "-m"], capture_output=True, text=True)
+        self.assertEqual(probe.returncode, 0)
+        self.assertNotEqual(probe.stdout.strip(), "")
 
 
 if __name__ == "__main__":
