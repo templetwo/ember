@@ -206,23 +206,30 @@ class ManifestTests(unittest.TestCase):
             m, rows, sha = load_manifest(path)
             self.assertEqual(len(rows["heldout"]), 3)
             output = base / "report.json"
-            stdout = io.StringIO()
-            with contextlib.redirect_stdout(stdout):
-                self.assertEqual(main(["baselines", "--manifest", str(path), "--output", str(output)]), 0)
+            stdout, stderr = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                rc = main(["baselines", "--manifest", str(path), "--output", str(output)])
+            self.assertEqual(rc, 0, stdout.getvalue() + stderr.getvalue())
+            self.assertEqual(stderr.getvalue(), "")
+            self.assertEqual(stdout.getvalue().count("\n"), 1)
+            self.assertTrue(stdout.getvalue().endswith("\n"))
             recorded = json.loads(stdout.getvalue())
-            self.assertEqual(recorded["status"], "recorded")
-            self.assertEqual(recorded["report_sha256"], digest(output.read_bytes()))
+            self.assertEqual(recorded, {"status": "recorded", "report_sha256": digest(output.read_bytes()),
+                                        "second_seat_verification": "pending"})
             report = json.loads(output.read_text())
             self.assertEqual(report["manifest_sha256"], sha)
             self.assertEqual(report["second_seat_verification"], "pending")
             self.assertEqual(report["constraints"], manifest["constraints"])
             self.assertEqual(len(report["result"]["baselines"]["always-stop"]["predictions"]), 3)
             self.assertNotIn("Synthetic protocol evidence", output.read_text())
-            stderr = io.StringIO()
-            with contextlib.redirect_stderr(stderr):
-                self.assertEqual(main(["baselines", "--manifest", str(path), "--output", str(output)]), 2)
+            stdout, stderr = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                rc = main(["baselines", "--manifest", str(path), "--output", str(output)])
+            self.assertEqual(rc, 2, stdout.getvalue() + stderr.getvalue())
+            self.assertEqual(stdout.getvalue(), "")
             self.assertEqual(stderr.getvalue(), "ember: refused: FileExistsError\n")
-            self.assertNotIn(str(output), stderr.getvalue())
+            self.assertNotIn(tmp, stderr.getvalue())
+            self.assertEqual(digest(output.read_bytes()), recorded["report_sha256"])
 
     def test_modified_quote_invalidates_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
