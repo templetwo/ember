@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from ember.baselines import fit_length, predict, run_baselines, score
@@ -314,6 +315,32 @@ class PublicCheckTests(unittest.TestCase):
             check.ROOT = base
             with contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(check.main(), 1)
+
+
+class ProvenanceTests(unittest.TestCase):
+    def test_git_calls_never_write_to_the_console(self):
+        import ember.cli as cli
+        calls = []
+
+        def fake_check_output(argv, **kwargs):
+            calls.append((argv, kwargs))
+            return "abc123\n" if argv[-2:] == ["rev-parse", "HEAD"] else ""
+
+        with patch.object(cli.subprocess, "check_output", side_effect=fake_check_output):
+            provenance = cli.runtime_provenance()
+        self.assertEqual(provenance["git_revision"], "abc123")
+        self.assertFalse(provenance["working_tree_dirty"])
+        git_calls = [kwargs for argv, kwargs in calls if argv[0] == "git"]
+        self.assertEqual(len(git_calls), 2)
+        for kwargs in git_calls:
+            self.assertEqual(kwargs.get("stderr"), subprocess.DEVNULL)
+
+    def test_provenance_falls_back_when_git_is_unavailable(self):
+        import ember.cli as cli
+        with patch.object(cli.subprocess, "check_output", side_effect=OSError("no git")):
+            provenance = cli.runtime_provenance()
+        self.assertEqual(provenance["git_revision"], "uncommitted")
+        self.assertTrue(provenance["working_tree_dirty"])
 
 
 if __name__ == "__main__":

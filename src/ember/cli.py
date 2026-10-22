@@ -34,7 +34,7 @@ def runtime_provenance() -> dict:
     hashes = {str(p.relative_to(ROOT)): digest(p.read_bytes()) for p in files}
     try:
         revision = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], stderr=subprocess.DEVNULL, text=True).strip()
-        dirty = bool(subprocess.check_output(["git", "-C", str(ROOT), "status", "--porcelain", "--untracked-files=normal"], text=True).strip())
+        dirty = bool(subprocess.check_output(["git", "-C", str(ROOT), "status", "--porcelain", "--untracked-files=normal"], stderr=subprocess.DEVNULL, text=True).strip())
     except (OSError, subprocess.CalledProcessError):
         revision, dirty = "uncommitted", True
     packages = {name: importlib.metadata.version(name) for name in
