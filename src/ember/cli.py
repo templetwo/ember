@@ -24,7 +24,7 @@ def selftest() -> dict:
         validator(name)
     if score(["OPEN", "PAUSE"], ["PAUSE", "PAUSE"])["balanced_accuracy"] != 0.5:
         raise InvalidCorpus("balanced-accuracy selftest failed")
-    return {"status": "passed", "python": platform.python_version(), "executable": sys.executable,
+    return {"status": "passed", "python": platform.python_version(), "executable": _redact(sys.executable),
             "jsonschema": importlib.metadata.version("jsonschema"), "scope": "offline evaluator; no MLX or model test"}
 
 
@@ -33,9 +33,20 @@ def _git(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True)
 
 
+def _home() -> str | None:
+    # Path.home() raises with no HOME and no passwd entry, and a root home would turn every slash into '~'.
+    try:
+        home = str(Path.home())
+    except RuntimeError:
+        return None
+    return home if len(home) > 1 else None
+
+
 def _redact(line: str) -> str:
     # Reports travel to a second seat: keep the reason, drop this machine's absolute paths.
-    return line.replace(str(ROOT), "<repo>").replace(str(Path.home()), "~")
+    line = line.replace(str(ROOT), "<repo>")
+    home = _home()
+    return line.replace(home, "~") if home else line
 
 
 def runtime_provenance() -> dict:
@@ -50,10 +61,10 @@ def runtime_provenance() -> dict:
         revision, dirty = "uncommitted", True
         warnings.append(_redact(f"git unavailable: {exc}"))
     else:
-        for completed in (head, status):
+        for name, completed in (("rev-parse", head), ("status", status)):
             warnings.extend(_redact(line) for line in completed.stderr.splitlines() if line.strip())
             if completed.returncode != 0:
-                warnings.append(f"git {completed.args[3]} exited {completed.returncode}")
+                warnings.append(f"git {name} exited {completed.returncode}")
         revision = head.stdout.strip() if head.returncode == 0 and head.stdout.strip() else "uncommitted"
         # Conservative: a tree git could not fully inspect is reported dirty, and the reason travels with the report.
         dirty = bool(status.stdout.strip()) or bool(warnings)

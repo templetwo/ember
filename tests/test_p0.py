@@ -332,7 +332,7 @@ class ProvenanceTests(unittest.TestCase):
     def _completed(argv, stdout="", stderr="", returncode=0):
         return subprocess.CompletedProcess(argv, returncode, stdout=stdout, stderr=stderr)
 
-    def _git_double(self, status_stdout="", status_stderr="", status_rc=0, calls=None):
+    def _git_double(self, status_stdout="", status_stderr="", status_rc=0, head_stdout="abc123\n", head_rc=0, calls=None):
         real_run = subprocess.run
 
         def fake_run(argv, **kwargs):
@@ -341,22 +341,27 @@ class ProvenanceTests(unittest.TestCase):
             if calls is not None:
                 calls.append((argv, kwargs))
             if argv[-2:] == ["rev-parse", "HEAD"]:
-                return self._completed(argv, stdout="abc123\n")
+                return self._completed(argv, stdout=head_stdout, returncode=head_rc)
             return self._completed(argv, stdout=status_stdout, stderr=status_stderr, returncode=status_rc)
 
         return fake_run
 
-    def test_git_calls_capture_stderr_and_never_write_to_the_console(self):
+    def _provenance(self, **double_kwargs):
+        """Run runtime_provenance() against the git double and assert the console stayed quiet."""
         import ember.cli as cli
-        calls = []
         out, err = io.StringIO(), io.StringIO()
-        with patch.object(cli.subprocess, "run", side_effect=self._git_double(calls=calls)), \
+        with patch.object(cli.subprocess, "run", side_effect=self._git_double(**double_kwargs)), \
                 contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             provenance = cli.runtime_provenance()
+        self.assertEqual((out.getvalue(), err.getvalue()), ("", ""))
+        return provenance
+
+    def test_git_calls_capture_stderr_and_never_write_to_the_console(self):
+        calls = []
+        provenance = self._provenance(calls=calls)
         self.assertEqual(provenance["git_revision"], "abc123")
         self.assertFalse(provenance["working_tree_dirty"])
         self.assertEqual(provenance["git_warnings"], [])
-        self.assertEqual((out.getvalue(), err.getvalue()), ("", ""))
         git_calls = [kwargs for argv, kwargs in calls if argv[0] == "git"]
         self.assertEqual(len(git_calls), 2)
         for kwargs in git_calls:
@@ -364,16 +369,36 @@ class ProvenanceTests(unittest.TestCase):
             self.assertNotEqual(kwargs.get("stderr"), subprocess.DEVNULL)
 
     def test_git_warnings_mark_the_tree_dirty_without_console_output(self):
-        import ember.cli as cli
         warning = "warning: could not open directory 'locked/': Permission denied"
-        out, err = io.StringIO(), io.StringIO()
-        with patch.object(cli.subprocess, "run", side_effect=self._git_double(status_stderr=warning + "\n")), \
-                contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            provenance = cli.runtime_provenance()
+        provenance = self._provenance(status_stderr=warning + "\n")
         self.assertEqual(provenance["git_revision"], "abc123")
         self.assertTrue(provenance["working_tree_dirty"], "an incomplete inspection must not read as clean")
         self.assertEqual(provenance["git_warnings"], [warning])
-        self.assertEqual((out.getvalue(), err.getvalue()), ("", ""))
+
+    def test_modified_tree_reads_dirty_without_warnings(self):
+        provenance = self._provenance(status_stdout="?? scratch.txt\n")
+        self.assertTrue(provenance["working_tree_dirty"])
+        self.assertEqual(provenance["git_warnings"], [])
+        self.assertEqual(provenance["git_revision"], "abc123")
+
+    def test_status_exit_code_is_recorded_and_marks_the_tree_dirty(self):
+        provenance = self._provenance(status_rc=128)
+        self.assertEqual(provenance["git_warnings"], ["git status exited 128"])
+        self.assertTrue(provenance["working_tree_dirty"])
+        self.assertEqual(provenance["git_revision"], "abc123")
+
+    def test_rev_parse_failure_yields_uncommitted(self):
+        provenance = self._provenance(head_stdout="HEAD\n", head_rc=128)
+        self.assertEqual(provenance["git_revision"], "uncommitted")
+        self.assertTrue(provenance["working_tree_dirty"])
+        self.assertEqual(provenance["git_warnings"], ["git rev-parse exited 128"])
+
+    def test_exit_warnings_never_name_the_repo_root(self):
+        import ember.cli as cli
+        provenance = self._provenance(status_rc=1, head_rc=1)
+        self.assertEqual(len(provenance["git_warnings"]), 2)
+        for warning in provenance["git_warnings"]:
+            self.assertNotIn(str(cli.ROOT), warning)
 
     def test_provenance_falls_back_when_git_is_unavailable(self):
         import ember.cli as cli
@@ -395,14 +420,28 @@ class ProvenanceTests(unittest.TestCase):
         root, home = str(cli.ROOT), str(Path.home())
         stderr = (f"warning: could not open directory '{root}/locked/': Permission denied\n"
                   f"warning: unable to access '{home}/.gitconfig': Permission denied\n")
-        with patch.object(cli.subprocess, "run", side_effect=self._git_double(status_stderr=stderr)):
-            provenance = cli.runtime_provenance()
+        provenance = self._provenance(status_stderr=stderr)
         self.assertTrue(provenance["working_tree_dirty"])
         self.assertEqual(provenance["git_warnings"], [
             "warning: could not open directory '<repo>/locked/': Permission denied",
             "warning: unable to access '~/.gitconfig': Permission denied"])
-        self.assertNotIn(root, json.dumps(provenance))
-        self.assertNotIn(home, json.dumps(provenance))
+        rendered = json.dumps(provenance, ensure_ascii=False)
+        self.assertNotIn(root, rendered)
+        self.assertNotIn(home, rendered)
+
+    def test_redaction_survives_a_root_or_missing_home_directory(self):
+        import ember.cli as cli
+        with patch.object(cli.Path, "home", return_value=Path("/")):
+            self.assertEqual(cli._redact("warning: a/b"), "warning: a/b")
+        with patch.object(cli.Path, "home", side_effect=RuntimeError("no home")):
+            self.assertEqual(cli._redact("warning: a/b"), "warning: a/b")
+
+    def test_selftest_executable_is_redacted(self):
+        import ember.cli as cli
+        executable = cli.selftest()["executable"]
+        self.assertIn("python", executable)
+        self.assertNotIn(str(Path.home()), executable)
+        self.assertNotIn(str(cli.ROOT), executable)
 
     def test_provenance_test_doubles_pass_non_git_commands_through(self):
         import ember.cli as cli
