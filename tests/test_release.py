@@ -45,6 +45,13 @@ class MatcherTests(unittest.TestCase):
             with self.assertRaises(InvalidCorpus):
                 release.controls()
 
+    def test_controls_refuse_narrow_alphabet_and_overmatching(self):
+        for expression in (r"svs_a{16,}", r".*"):
+            with self.subTest(expression=expression), patch.dict(
+                    release.PATTERNS, {"bridge-bearer": __import__("re").compile(expression)}):
+                with self.assertRaises(InvalidCorpus):
+                    release.controls()
+
     def test_nested_encoded_credential_found(self):
         secret = "svs_" + "x" * 24
         encoded = "".join("\\u%04x" % ord(char) for char in secret)
@@ -137,6 +144,17 @@ class CandidateTests(unittest.TestCase):
         path.write_text(json.dumps(candidate))
         with self.assertRaises(InvalidCorpus):
             release.scan_candidate(path)
+
+    def test_empty_object_row_refused_in_either_split(self):
+        for split in ("train", "heldout"):
+            with self.subTest(split=split):
+                path, candidate = candidate_fixture(self.base)
+                raw = b'{"text":"valid fixture"}\n{}\n'
+                (self.base / (split + ".jsonl")).write_bytes(raw)
+                candidate["corpus"][split]["sha256"] = digest(raw)
+                path.write_text(json.dumps(candidate))
+                with self.assertRaisesRegex(InvalidCorpus, "nonempty JSON objects"):
+                    release.scan_candidate(path)
 
     def test_blank_needle_refused(self):
         path, _ = candidate_fixture(self.base, needles=["  \n"])

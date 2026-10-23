@@ -64,8 +64,14 @@ still-changing ninth level produces `incomplete`, never `clear`. This is not a
 general decoder for every encoding. Each input file is limited to 16 MiB, and the
 needle list to 1,024 entries; oversize inputs are refused rather than clipped.
 Both proposed corpus files must contain nonempty JSON objects in JSONL form.
+An empty object (`{}`) is refused even when other rows in its file are valid.
 Invalid UTF-8, duplicate keys, missing files, hash mismatches, and path escapes
 are refusals. Credential-shaped filenames are refused before opening them.
+
+Before scanning, synthetic controls exercise each credential rule with two
+different token alphabets or forms, plus clean negative examples. These controls
+detect some matcher regressions; they are not exhaustive coverage of every
+encoding or credential format.
 
 Reports contain exact input hashes, row counts, matcher controls, findings by
 split and fixed rule name, code hashes, and the reader/cadence. They omit corpus

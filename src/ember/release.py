@@ -89,10 +89,34 @@ def controls() -> int:
     }
     if values.keys() != PATTERNS.keys():
         raise InvalidCorpus("candidate scanner control coverage mismatch")
+    variants = {
+        "bridge-bearer": "svs_" + "bZ09_-" * 4,
+        "connector-refresh": "cbr_" + "bZ09_-" * 4,
+        "openai-key": "sk-" + "bZ09_-" * 4,
+        "github-classic": "ghr_" + "bZ09" * 8,
+        "github-fine-grained": "github_pat_" + "bZ09_" * 7,
+        "slack-token": "xoxp-" + "bZ09-" * 4,
+        "aws-key-id": "AKIA" + "B09Z" * 4,
+        "xai-key": "xai-" + "bZ09" * 6,
+        "google-key": "AIza" + "bZ09_-" * 6,
+        "anthropic-key": "sk-ant-" + "bZ09_-" * 4,
+        "bearer-header": "bEaReR " + "bZ09._~+/=-" * 3,
+        "auth-header": "aUtHoRiZaTiOn: " + "bZ09./_-" * 3,
+        "private-key-block": "-----BEGIN " + "EC PRIVATE KEY-----",
+        "jwt": "eyJ" + "bZ09_-" * 2 + "." + "bZ09_-" * 2 + "." + "bZ09_-" * 2,
+        "secret-assignment": "API_KEY: '" + "bZ09_-/+." * 3,
+        "urlsafe-43": "bZ09_-" * 7 + "b",
+        "grant-id": "arq_" + "bZ09_-" * 4,
+    }
     for name, value in values.items():
-        hits, complete = scan_text(value, [])
-        if name not in hits or not complete:
-            raise InvalidCorpus("candidate scanner positive control failed")
+        for example in (value, variants[name]):
+            hits, complete = scan_text(example, [])
+            if name not in hits or not complete:
+                raise InvalidCorpus("candidate scanner positive control failed")
+    for clean in ("", "Ordinary review prose without credentials.", "svs_short", "Grant abc", "Bearer short"):
+        hits, complete = scan_text(clean, [])
+        if hits or not complete:
+            raise InvalidCorpus("candidate scanner negative control failed")
     return len(values)
 
 
@@ -132,8 +156,8 @@ def scan_candidate(path: Path) -> dict:
             raise InvalidCorpus("candidate filename requires review; file not opened")
         data = _bound(base, spec)
         rows = parse_jsonl(data)
-        if any(not isinstance(row, dict) for row in rows):
-            raise InvalidCorpus("candidate rows must be JSON objects")
+        if any(not isinstance(row, dict) or not row for row in rows):
+            raise InvalidCorpus("candidate rows must be nonempty JSON objects")
         counts[split] = len(rows)
         hashes[split] = digest(data)
         hits, complete = scan_text(data.decode("utf-8"), needles)
