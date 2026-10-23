@@ -55,6 +55,32 @@ Always-stop predicts PAUSE. Keyword-stop predicts PAUSE on whole-word matches fr
 
 Reports include complete per-pair predictions, expected labels, confusion counts, denominators, stop rates, the fitted rule, file hashes, actual code hashes, dependency versions, constraints, and the manifest's reader. They intentionally omit raw situations and evidence. A baseline report contains no declare-before-verify score, entropy measure, model receipt rate, model OOM result, or deployment decision.
 
+### Runtime provenance
+
+`provenance.git_revision` records Git's HEAD, or `uncommitted` if it cannot be read.
+`working_tree_dirty` means **modified, untracked, or not fully inspected**. Any
+nonblank Git diagnostic, nonzero exit, or failure to run Git marks it true, even
+when `git status` returns no filenames. False means the two Git commands completed
+without warnings and status reported no changes; ignored files are outside this
+check. The code hashes bind the actual instrument bytes separately from Git state.
+
+`git_warnings` carries captured diagnostics and exit failures without printing them
+to the console. Git output is decoded as UTF-8; invalid bytes are preserved as
+backslash escapes. Warnings are redacted, limited to 512 characters each (including
+` [truncated]` when shortened), then deduplicated in first-seen order. At most 20
+distinct rendered warnings are kept, followed by `additional git warnings omitted`
+if more exist. These are report-size limits, not subprocess memory limits. Shortening
+or deduplicating warnings never turns an incomplete inspection into a clean result.
+
+Warnings and `selftest.executable` replace the repository root with `<repo>`, the
+home directory with `~`, the current `TMPDIR` and standard temporary roots with
+`<tmp>`, the Apple Silicon Homebrew prefix with `<homebrew>`, and mounted volume
+names beneath `/Volumes` with `<volume>`. The temporary directory's `/var` and
+`/private/var` spellings are both recognized. Longer prefixes take priority. These
+replacements cover literal known paths; arbitrary paths, escaped path spellings,
+filenames, and other private diagnostic text are not a general privacy clearance.
+Reports still belong in ignored local storage and need review before sharing.
+
 ## Known detector limits
 
 Hashes detect changes relative to a trusted manifest and release receipt; a person who rewrites all three can fabricate a new attestation. Exact situation matching does not find semantic paraphrases or all related-event leakage. The `source_kind` field does not authenticate authorship. Robot exclusions rely on a complete reserved claim list. Negation review flags record a person's review; they do not perform it. Balanced accuracy does not by itself establish an appropriate stop rate or zero declare-before-verify.

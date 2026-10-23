@@ -443,6 +443,87 @@ class ProvenanceTests(unittest.TestCase):
         self.assertNotIn(str(Path.home()), executable)
         self.assertNotIn(str(cli.ROOT), executable)
 
+    def test_git_decodes_invalid_bytes(self):
+        import ember.cli as cli
+        real_run = subprocess.run
+
+        def emit_bytes(argv, **kwargs):
+            if argv[0] != "git":
+                return real_run(argv, **kwargs)
+            if argv[-2:] == ["rev-parse", "HEAD"]:
+                script = "import sys; sys.stdout.buffer.write(b'abc123\\n')"
+            else:
+                script = ("import sys; sys.stdout.buffer.write(b'?? bad-\\xff\\n'); "
+                          "sys.stderr.buffer.write(b'warning: bad-\\xfe\\n')")
+            return real_run([sys.executable, "-c", script], **kwargs)
+
+        out, err = io.StringIO(), io.StringIO()
+        with patch.object(cli.subprocess, "run", side_effect=emit_bytes), \
+                contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            provenance = cli.runtime_provenance()
+        self.assertEqual((out.getvalue(), err.getvalue()), ("", ""))
+        self.assertEqual(provenance["git_revision"], "abc123")
+        self.assertTrue(provenance["working_tree_dirty"])
+        self.assertEqual(provenance["git_warnings"], [r"warning: bad-\xfe"])
+        json.dumps(provenance, ensure_ascii=False).encode("utf-8")
+
+    def test_warning_duplicates_collapse(self):
+        warnings = "warning: first\n\nwarning: second\nwarning: first\n" * 100
+        provenance = self._provenance(status_stderr=warnings)
+        self.assertEqual(provenance["git_warnings"], ["warning: first", "warning: second"])
+        self.assertTrue(provenance["working_tree_dirty"])
+
+    def test_warning_count_has_visible_limit(self):
+        warnings = "\n".join(f"warning: item {i}" for i in range(30))
+        provenance = self._provenance(status_stderr=warnings)
+        self.assertEqual(provenance["git_warnings"],
+                         [f"warning: item {i}" for i in range(20)] +
+                         ["additional git warnings omitted"])
+        self.assertTrue(provenance["working_tree_dirty"])
+
+    def test_warning_length_has_visible_limit(self):
+        import ember.cli as cli
+        warning = f"warning: {cli.ROOT}/" + "x" * 1000
+        provenance = self._provenance(status_stderr=warning)
+        rendered = provenance["git_warnings"][0]
+        self.assertEqual(len(rendered), 512)
+        self.assertTrue(rendered.startswith("warning: <repo>/"))
+        self.assertTrue(rendered.endswith(" [truncated]"))
+        self.assertNotIn(str(cli.ROOT), rendered)
+        self.assertTrue(provenance["working_tree_dirty"])
+
+    def test_known_path_prefixes_are_redacted(self):
+        import ember.cli as cli
+        brew = "/opt/homebrew"
+        paths = ["/var/folders/fixture/T/cache", "/private/var/folders/fixture/T/cache",
+                 "/tmp/cache", "/private/tmp/cache", brew + "/bin/git",
+                 "/Volumes/Fixture Disk/repo/locked"]
+        warnings = "\n".join(f"warning: unable to read '{path}'" for path in paths)
+        with patch.dict(cli.os.environ, {"TMPDIR": "/var/folders/fixture/T/"}):
+            provenance = self._provenance(status_stderr=warnings)
+        self.assertEqual(provenance["git_warnings"], [
+            "warning: unable to read '<tmp>/cache'",
+            "warning: unable to read '<homebrew>/bin/git'",
+            "warning: unable to read '<volume>/repo/locked'"])
+        for path in paths:
+            self.assertNotIn(path, json.dumps(provenance))
+
+    def test_temp_root_does_not_rewrite_slashes(self):
+        import ember.cli as cli
+        for temp in ("/", "", "relative/path"):
+            with self.subTest(temp=temp), patch.dict(cli.os.environ, {"TMPDIR": temp}):
+                self.assertEqual(cli._redact("warning: /elsewhere/file"), "warning: /elsewhere/file")
+
+    def test_prefix_siblings_are_not_rewritten(self):
+        import ember.cli as cli
+        with patch.dict(cli.os.environ, {"TMPDIR": "/fixture/temp/"}):
+            self.assertEqual(cli._redact("/fixture/temporary/file"), "/fixture/temporary/file")
+
+    def test_external_interpreter_is_redacted(self):
+        import ember.cli as cli
+        with patch.object(cli.sys, "executable", "/opt/homebrew" + "/bin/python3.10"):
+            self.assertEqual(cli.selftest()["executable"], "<homebrew>/bin/python3.10")
+
     def test_provenance_test_doubles_pass_non_git_commands_through(self):
         import ember.cli as cli
         with patch.object(cli.subprocess, "run", side_effect=self._git_double()):

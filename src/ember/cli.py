@@ -4,7 +4,9 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import json
+import os
 import platform
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -13,6 +15,9 @@ from pathlib import Path
 from . import __version__
 from .baselines import run_baselines, score
 from .validation import ROOT, InvalidCorpus, digest, load_manifest, validator
+
+MAX_GIT_WARNINGS = 20
+MAX_GIT_WARNING_CHARS = 512
 
 
 def selftest() -> dict:
@@ -30,7 +35,8 @@ def selftest() -> dict:
 
 def _git(*args: str) -> subprocess.CompletedProcess:
     # stderr is captured, never discarded: a warning from git means the inspection was incomplete.
-    return subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True)
+    return subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True,
+                          text=True, encoding="utf-8", errors="backslashreplace")
 
 
 def _home() -> str | None:
@@ -44,9 +50,42 @@ def _home() -> str | None:
 
 def _redact(line: str) -> str:
     # Reports travel to a second seat: keep the reason, drop this machine's absolute paths.
-    line = line.replace(str(ROOT), "<repo>")
+    prefixes = [(str(ROOT), "<repo>")]
     home = _home()
-    return line.replace(home, "~") if home else line
+    if home:
+        prefixes.append((home, "~"))
+    temp = os.environ.get("TMPDIR", "").rstrip("/")
+    if temp.startswith("/"):
+        prefixes.append((temp, "<tmp>"))
+        # macOS tools may spell the same temporary directory with either prefix.
+        if temp.startswith("/var/"):
+            prefixes.append(("/private" + temp, "<tmp>"))
+        elif temp.startswith("/private/var/"):
+            prefixes.append((temp[len("/private"):], "<tmp>"))
+    prefixes.extend([("/private/tmp", "<tmp>"), ("/tmp", "<tmp>"),
+                     ("/opt/homebrew", "<homebrew>")])
+    # Specific paths win over their parents; do not replace a sibling's shared prefix.
+    for prefix, replacement in sorted(prefixes, key=lambda item: len(item[0]), reverse=True):
+        line = re.sub(re.escape(prefix) + r"(?=/|$|[\s'\":])", lambda _: replacement, line)
+    return re.sub(r"/Volumes/[^/\n'\"]+", "<volume>", line)
+
+
+def _bounded_warnings(lines: list[str]) -> list[str]:
+    """Bound report text after redaction, keeping the first occurrence in order."""
+    result: list[str] = []
+    for line in lines:
+        if not line.strip():
+            continue
+        line = _redact(line)
+        if len(line) > MAX_GIT_WARNING_CHARS:
+            line = line[:MAX_GIT_WARNING_CHARS - len(" [truncated]")] + " [truncated]"
+        if line in result:
+            continue
+        if len(result) == MAX_GIT_WARNINGS:
+            result.append("additional git warnings omitted")
+            break
+        result.append(line)
+    return result
 
 
 def runtime_provenance() -> dict:
@@ -59,10 +98,10 @@ def runtime_provenance() -> dict:
         status = _git("status", "--porcelain", "--untracked-files=normal")
     except OSError as exc:
         revision, dirty = "uncommitted", True
-        warnings.append(_redact(f"git unavailable: {exc}"))
+        warnings.append(f"git unavailable: {exc}")
     else:
         for name, completed in (("rev-parse", head), ("status", status)):
-            warnings.extend(_redact(line) for line in completed.stderr.splitlines() if line.strip())
+            warnings.extend(line for line in completed.stderr.splitlines() if line.strip())
             if completed.returncode != 0:
                 warnings.append(f"git {name} exited {completed.returncode}")
         revision = head.stdout.strip() if head.returncode == 0 and head.stdout.strip() else "uncommitted"
@@ -70,7 +109,7 @@ def runtime_provenance() -> dict:
         dirty = bool(status.stdout.strip()) or bool(warnings)
     packages = {name: importlib.metadata.version(name) for name in
                 ("jsonschema", "attrs", "jsonschema-specifications", "referencing", "rpds-py")}
-    return {"git_revision": revision, "working_tree_dirty": dirty, "git_warnings": warnings, "code_sha256": hashes,
+    return {"git_revision": revision, "working_tree_dirty": dirty, "git_warnings": _bounded_warnings(warnings), "code_sha256": hashes,
             "packages": packages, "platform": platform.platform(), "machine": platform.machine()}
 
 
