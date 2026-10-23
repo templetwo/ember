@@ -50,8 +50,12 @@ To refresh the local metadata inventory without loading a model or reading recor
 .venv/bin/python scripts/audit_local.py --output local/audit/pickup.json --reader 'NAMED_READER' --cadence 'before corpus freeze'
 ```
 
-This collector uses the local repository layout found during the initial audit; absent paths are reported rather than searched across personal archives. It writes only under the ignored `local/` directory. `scripts/check_public.py` inspects staged file bytes for unexpected paths, artifacts, and several credential shapes. It is a scaffold publication check, not the corpus release filter.
+This collector uses the local repository layout found during the initial audit; absent paths are reported rather than searched across personal archives. It writes only under the ignored `local/` directory. `scripts/check_public.py` reads every tracked file's bytes from the git index and refuses unexpected paths, binary or oversized artifacts, several credential shapes, absolute user-home paths, and Homebrew interpreter paths. It is a scaffold publication check, not the corpus release filter.
 
 The unit tests use synthetic protocol fixtures created in temporary directories. They are software checks, never training examples or evidence of model competence. Receipt presence is checked mechanically; semantic support, negations, declare-before-verify, and the other model acceptance tests still require their own evaluation work.
 
 HQ can use the separate [Studio environment probe](docs/studio-environment-check.md) to inspect its existing interpreter and run one disposable synthetic LoRA step. Its numerical run was pending on 2026-10-19; HQ ran it once that afternoon and it passed (claim `af874e64`; see the probe doc's update). The [MacBook follow-up](docs/macbook-followup-2026-10-19.md) records the fetched renderer status and links the CK receipt note.
+
+## License
+
+The code, schemas, scripts, and documentation in this repository are licensed under the Apache License, Version 2.0; see [LICENSE](LICENSE). The [NOTICE](NOTICE) file credits the co-authors, Anthony Vasquez Sr. and Claude, records the scaffold's provenance, and states the scope: the license does not reach the Temple of Two's chronicle, any training corpus derived from it, any Ember model weights, or any local audit receipts. This repository contains none of them, and any release of them is a separate decision. The license places no restriction on where the software runs.
