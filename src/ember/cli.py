@@ -14,6 +14,7 @@ from pathlib import Path
 
 from . import __version__
 from .baselines import run_baselines, score
+from .release import scan_candidate
 from .validation import ROOT, InvalidCorpus, digest, load_manifest, validator
 
 MAX_GIT_WARNINGS = 20
@@ -25,7 +26,7 @@ def selftest() -> dict:
         raise InvalidCorpus("evaluation interpreter must be Python 3.10.12 (see .python-version)")
     if importlib.metadata.version("jsonschema") != "4.25.0":
         raise InvalidCorpus("jsonschema version differs from evaluation pin")
-    for name in ("decision", "pair", "manifest"):
+    for name in ("decision", "pair", "manifest", "candidate"):
         validator(name)
     if score(["OPEN", "PAUSE"], ["PAUSE", "PAUSE"])["balanced_accuracy"] != 0.5:
         raise InvalidCorpus("balanced-accuracy selftest failed")
@@ -115,8 +116,9 @@ def runtime_provenance() -> dict:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("selftest", "validate", "baselines"))
+    parser.add_argument("command", choices=("selftest", "validate", "baselines", "scan"))
     parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--candidate", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
     try:
@@ -124,6 +126,21 @@ def main(argv=None) -> int:
         if args.command == "selftest":
             print(json.dumps(check, indent=2))
             return 0
+        if args.command == "scan":
+            if args.candidate is None or args.output is None:
+                parser.error("scan requires --candidate and --output")
+            output = args.output.resolve()
+            if not output.is_relative_to(ROOT.resolve() / "local"):
+                raise InvalidCorpus("candidate scan reports must stay under local/")
+            report = scan_candidate(args.candidate)
+            report.update(selftest=check, provenance=runtime_provenance(),
+                          started_at=datetime.now(timezone.utc).isoformat())
+            with output.open("x", encoding="utf-8") as stream:
+                json.dump(report, stream, indent=2, allow_nan=False)
+                stream.write("\n")
+            print(json.dumps({"status": report["status"], "report_sha256": digest(output.read_bytes()),
+                              "release_review": "pending"}))
+            return 0 if report["status"] == "clear" else 2
         if args.manifest is None:
             parser.error("--manifest is required")
         if args.command == "baselines" and args.output is None:
@@ -152,7 +169,7 @@ def main(argv=None) -> int:
             stream.write("\n")
         print(json.dumps({"status": "recorded", "report_sha256": digest(args.output.read_bytes()), "second_seat_verification": "pending"}))
         return 0
-    except (InvalidCorpus, OSError, ValueError, KeyError, TypeError) as error:
+    except (InvalidCorpus, OSError, ValueError, KeyError, TypeError, RecursionError) as error:
         # No arbitrary exception string: JSON parse errors and paths can contain private data.
         message = str(error) if isinstance(error, InvalidCorpus) else type(error).__name__
         print(f"ember: refused: {message}", file=sys.stderr)

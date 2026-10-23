@@ -16,6 +16,10 @@ uv sync --locked --python 3.10.12
 
 Every `scripts/ember` command runs the offline selftest first. `scripts/ember` selects the repository's absolute `.venv/bin/python` path. It never loads MLX, a model, a grant, or a chronicle client.
 
+Proposed private corpus files can first use the [candidate screening command](docs/candidate-screening.md).
+It checks credential shapes and explicitly supplied literal needles against exact
+hash-bound inputs, produces a private report, and leaves release review pending.
+
 After a real corpus has been filtered, reviewed, and frozen:
 
 ```sh
@@ -38,7 +42,12 @@ The keyword predictor uses case-insensitive whole words: `rm`, `push`, `delete`,
 
 ## What remains before P0 can finish
 
-The first real corpus cut and the mirror's release filter have not been imported. The evaluator requires a reviewer receipt bound to the exact corpus and policy bytes; this attestation does not itself prove that private material was excluded. Query-window selection and release scanning belong upstream and remain to be connected.
+No reviewed corpus cut is bundled with this repository. The offline candidate
+scanner adapts the mirror's credential checks and accepts explicit literal needles;
+source selection, protected-record coupling, and the mirror's claim-ID checks remain
+upstream. The evaluator requires a reviewer receipt bound to the exact corpus and
+policy bytes; this attestation does not itself prove source eligibility. Query-window
+selection and review still need to be completed for a real cut.
 
 As of 13:45 EDT on 2026-10-19 (`7fb7bad`), the Ground count, historical judged labels, Studio environment, Jetson load cycle, and independent reproduction remained open. Update 2026-10-21: later that same day HQ reproduced the scaffold's 34 protocol tests at `319450b` (its Tier 2 second-seat check), completed the Studio environment check, and read the Ground count and the August 30 labels (Sovereign Stack claim `af874e64`; details in the [phase checklist](docs/p0-checklist.md)); the P0 reproduction of baseline numbers, using the August 30 labels in pairing, and the Jetson load cycle remain open. No checkpoint is selected. No training, tokenizer audit, model inference, model smoke test, or deployment approval is inferred from this scaffold.
 

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ember:candidate:0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "purpose", "scope", "corpus", "policy", "needles", "exclusions_sha256", "reader"],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "purpose": {"const": "p0-candidate-scan"},
+    "scope": {"const": "private-training"},
+    "corpus": {
+      "type": "object", "additionalProperties": false,
+      "required": ["train", "heldout"],
+      "properties": {
+        "train": {"$ref": "urn:ember:manifest:0.1#/$defs/file"},
+        "heldout": {"$ref": "urn:ember:manifest:0.1#/$defs/file"}
+      }
+    },
+    "policy": {"$ref": "urn:ember:manifest:0.1#/$defs/file"},
+    "needles": {"$ref": "urn:ember:manifest:0.1#/$defs/file"},
+    "exclusions_sha256": {"$ref": "urn:ember:manifest:0.1#/$defs/hash"},
+    "reader": {
+      "type": "object", "additionalProperties": false, "required": ["name", "cadence"],
+      "properties": {
+        "name": {"type": "string", "pattern": "\\S"},
+        "cadence": {"type": "string", "pattern": "\\S"}
+      }
+    }
+  }
+}

@@ -9,10 +9,17 @@ Initial state: **pre-P0; no real corpus cut or held-out baseline number**.
 - [x] Shared decision schema and reviewed-pair contract.
 - [x] Manifest-bound baseline evaluator with time-cut and reserved robot-stop checks.
 - [x] Synthetic protocol tests; no synthetic training data.
+- [x] Offline private-candidate screening with hash-bound inputs, credential and
+  explicit literal checks, positive controls, and no automatic release approval.
+  See [candidate screening](candidate-screening.md).
 
 ## Before a real P0 exit
 
 - [ ] Read current mirror release pipeline and its 17-path withheld policy; integrate its needle and credential scans without opening protected bodies.
+  Update 2026-10-22: the current scanner code and the October 19/21 policy metadata
+  were read. Credential shapes and supplied literal matching are now implemented
+  offline. Automatic drawer retrieval and claim-ID filtering are not imported;
+  private-training scope must be reconciled with subsequent rulings before a cut.
 - [x] Confirm the Ground ledger count and span from the authorized surface. Done by HQ on the Studio, 2026-10-19 (claim `af874e64`): 40 entries, 39 catches, events 2026-05-03 to 2026-10-04; one entry breaks the leading-tag rule.
 - [ ] HQ: use the August 30 judged labels from the Studio filing identified by Fable; the MacBook log is a different surface and is not their source. Update 2026-10-21: HQ located them on 2026-10-19 (claim `af874e64`): the filing's 39 credential-paste incidents have 0 true positives and its 11 rm-rf-wildcard rows are 9 false positives and 2 correct; the per-row labels are in the Studio workflow journal and predate the refutation of an earlier "11 true positives" reading, which survives only in a superseded draft; `compass_log` keeps a rolling 30-day window and has no judge column, so the August 30 rows are absent from it on every machine. Using them in pairing is still open.
 - [ ] Freeze the time cut, list the robot-stop claim IDs, exclude letters, and apply the handle placeholder pending ruling.

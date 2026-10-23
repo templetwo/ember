@@ -91,7 +91,7 @@ def render_evidence(evidence: list[dict]) -> str:
     return "\n\n".join(f"[{e['claim_id']}] {e['recorded_at']}\n{e['text']}" for e in evidence)
 
 
-def read_bound_file(base: Path, spec: dict) -> bytes:
+def read_bound_file(base: Path, spec: dict, max_bytes: int | None = None) -> bytes:
     relative = Path(spec["path"])
     if relative.is_absolute() or ".." in relative.parts:
         raise InvalidCorpus("manifest paths must stay below its directory")
@@ -99,7 +99,10 @@ def read_bound_file(base: Path, spec: dict) -> bytes:
     path = (base / relative).resolve()
     if not path.is_relative_to(base):
         raise InvalidCorpus("manifest file escapes its directory")
-    data = path.read_bytes()
+    with path.open("rb") as stream:
+        data = stream.read() if max_bytes is None else stream.read(max_bytes + 1)
+    if max_bytes is not None and len(data) > max_bytes:
+        raise InvalidCorpus("bound file exceeds scan limit")
     if digest(data) != spec["sha256"]:
         raise InvalidCorpus("manifest file hash mismatch")
     return data
