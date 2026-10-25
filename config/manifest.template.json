@@ -15,7 +15,7 @@
     "exclusions_sha256": "PENDING"
   },
   "constraints": {
-    "pair_classes": ["observed-stop"],
+    "pair_classes": ["observed-decision"],
     "evidence_max_chars": 4000,
     "length_fit": "train-only",
     "statistic": "balanced_accuracy_open_vs_stop",

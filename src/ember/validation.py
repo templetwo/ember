@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -64,20 +65,58 @@ def timestamp(value: str) -> datetime:
 
 def validate_decision(decision: dict, evidence: list[dict]):
     validate_schema("decision", decision)
-    present = {item["claim_id"] for item in evidence}
-    if not set(decision["cited_claim_ids"]).issubset(present):
+    present = {normalize_claim_id(item["claim_id"]) for item in evidence}
+    if not {normalize_claim_id(cid) for cid in decision["cited_claim_ids"]}.issubset(present):
         raise InvalidCorpus("cited claim is absent from evidence window")
+
+
+def normalize_claim_id(value: str) -> str:
+    """Comparison form only; never rewrite reviewed row bytes."""
+    normalized = "".join(value.split()).casefold()
+    if not normalized:
+        raise InvalidCorpus("claim id is blank after normalization")
+    return normalized
+
+
+def reject_label_reference(pair: dict):
+    label = normalize_claim_id(pair["review"]["label_source_claim_id"])
+    # Every >=12-character prefix includes the first 12 characters. Search
+    # substrings without a word boundary, including longer rendered identifiers.
+    needles = [label]
+    if re.fullmatch(r"[0-9a-f]{12,}", label):
+        needles.append(label[:12])
+    texts = [pair["situation"], pair["target"]["rationale"]]
+    texts.extend(e["text"] for e in pair["evidence"])
+    texts.extend(e["claim_id"] for e in pair["evidence"])
+    texts.extend(pair["source_claim_ids"])
+    texts.extend(pair["target"]["cited_claim_ids"])
+    if any(needle in "".join(text.split()).casefold() for text in texts for needle in needles):
+        raise InvalidCorpus("label source reference appears in model-facing content")
+
+
+def decision_flags(pair: dict) -> list[str]:
+    """Derive disagreements; an author cannot clear them with a class label."""
+    act_stop = pair["review"]["observed_act"] == "stop"
+    target_stop = pair["target"]["decision"] != "OPEN"
+    if act_stop and not target_stop:
+        return ["over-stop"]
+    if target_stop and not act_stop:
+        return ["hindsight-stop"]
+    return []
 
 
 def validate_pair(pair: dict, evidence_max_chars: int):
     validate_schema("pair", pair)
     evidence = pair["evidence"]
-    ids = [item["claim_id"] for item in evidence]
+    ids = [normalize_claim_id(item["claim_id"]) for item in evidence]
     if len(ids) != len(set(ids)):
         raise InvalidCorpus("duplicate evidence claim id")
-    if pair["review"]["label_source_claim_id"] in ids:
+    if normalize_claim_id(pair["review"]["label_source_claim_id"]) in ids:
         raise InvalidCorpus("label source must stay outside the pre-decision evidence")
-    if not set(pair["source_claim_ids"]).issubset(ids):
+    reject_label_reference(pair)
+    if pair["pair_class"] == "observed-decision" and decision_flags(pair):
+        raise InvalidCorpus("observed act disagrees with the target decision")
+    if not {normalize_claim_id(cid) for cid in pair["source_claim_ids"]}.issubset(ids):
         raise InvalidCorpus("pair source claim is absent from evidence window")
     if not pair["target"]["cited_claim_ids"]:
         raise InvalidCorpus("every training target needs its record receipt")
@@ -95,7 +134,7 @@ def render_evidence(evidence: list[dict]) -> str:
 
 def linked_claim_ids(pair: dict) -> set[str]:
     """Split exclusions include later label provenance without rendering it."""
-    return {e["claim_id"] for e in pair["evidence"]} | {pair["review"]["label_source_claim_id"]}
+    return {normalize_claim_id(e["claim_id"]) for e in pair["evidence"]} | {normalize_claim_id(pair["review"]["label_source_claim_id"])}
 
 
 def read_bound_file(base: Path, spec: dict, max_bytes: int | None = None) -> bytes:
@@ -127,11 +166,16 @@ def parse_jsonl(data: bytes) -> list[dict]:
 
 
 def validate_split(train: list[dict], heldout: list[dict], freeze_at: str, evidence_max_chars: int,
-                   robot_stop_claim_ids=()):
+                   robot_stop_claim_ids=(), *, pair_classes=("observed-decision",)):
     if not train or not heldout:
         raise InvalidCorpus("both train and heldout must be nonempty")
     cut = timestamp(freeze_at)
-    reserved = set(robot_stop_claim_ids)
+    reserved = {normalize_claim_id(cid) for cid in robot_stop_claim_ids}
+    # First-cut policy stays fixed. The actual row-admission test below consumes
+    # the manifest value rather than a second hardcoded class comparison.
+    if list(pair_classes) != ["observed-decision"]:
+        raise InvalidCorpus("first cut must admit observed-decision only")
+    admitted_classes = set(pair_classes)
     all_ids = set()
     claim_sets = []
     input_sets = []
@@ -139,8 +183,8 @@ def validate_split(train: list[dict], heldout: list[dict], freeze_at: str, evide
         claims, inputs = set(), set()
         for pair in rows:
             validate_pair(pair, evidence_max_chars)
-            if pair["pair_class"] != "observed-stop":
-                raise InvalidCorpus("first cut admits observed-stop pairs only")
+            if pair["pair_class"] not in admitted_classes:
+                raise InvalidCorpus("pair class is outside the first cut manifest")
             if pair["pair_id"] in all_ids:
                 raise InvalidCorpus("duplicate pair id")
             all_ids.add(pair["pair_id"])
@@ -194,5 +238,6 @@ def load_manifest(path: Path):
             or receipt.get("reader") != review["reader"]):
         raise InvalidCorpus("release receipt does not bind this corpus, policy, exclusions, and reader")
     rows = {name: parse_jsonl(read_bound_file(base, item)) for name, item in manifest["corpus"].items()}
-    validate_split(rows["train"], rows["heldout"], manifest["freeze_at"], manifest["constraints"]["evidence_max_chars"], manifest["robot_stop_claim_ids"])
+    validate_split(rows["train"], rows["heldout"], manifest["freeze_at"], manifest["constraints"]["evidence_max_chars"],
+                   manifest["robot_stop_claim_ids"], pair_classes=manifest["constraints"]["pair_classes"])
     return manifest, rows, digest(manifest_bytes)

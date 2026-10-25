@@ -10,7 +10,7 @@
     "source_claim_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 128}},
     "recorded_at": {"type": "string", "format": "date-time"},
     "shape": {"enum": ["catch", "judged_gate", "close", "supersession", "ruling", "open_thread"]},
-    "pair_class": {"enum": ["observed-stop", "retrospective-rule", "over-stop"]},
+    "pair_class": {"enum": ["observed-decision", "retrospective-rule"]},
     "holdout": {"enum": ["none", "robot_stop"]},
     "situation": {"type": "string", "minLength": 1},
     "evidence": {
@@ -28,11 +28,12 @@
     "target": {"$ref": "urn:ember:decision:0.1"},
     "review": {
       "type": "object", "additionalProperties": false,
-      "required": ["reader", "receipt", "label_source_claim_id", "negations_checked", "unverified_claims_tagged"],
+      "required": ["reader", "receipt", "label_source_claim_id", "observed_act", "negations_checked", "unverified_claims_tagged"],
       "properties": {
         "reader": {"type": "string", "minLength": 1},
         "receipt": {"type": "string", "minLength": 1},
         "label_source_claim_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "observed_act": {"enum": ["proceed", "stop"]},
         "negations_checked": {"const": true},
         "unverified_claims_tagged": {"const": true}
       }

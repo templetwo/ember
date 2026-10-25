@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 
 from .validation import InvalidCorpus
 
@@ -72,4 +73,10 @@ def run_baselines(train: list[dict], heldout: list[dict]) -> dict:
             {"pair_id": pair["pair_id"], "expected": label, "predicted": decision}
             for pair, label, decision in zip(heldout, labels, decisions)
         ]}
-    return {"statistic": "balanced_accuracy_open_vs_stop", "length_rule": rule, "baselines": results}
+    counts = {}
+    for split, rows in (("train", train), ("heldout", heldout)):
+        groups = Counter((p["target"]["decision"], p["shape"], p["pair_class"]) for p in rows)
+        counts[split] = [{"label": label, "shape": shape, "pair_class": kind, "count": count}
+                         for (label, shape, kind), count in sorted(groups.items())]
+    return {"statistic": "balanced_accuracy_open_vs_stop", "length_rule": rule, "baselines": results,
+            "label_shape_class_counts": counts}

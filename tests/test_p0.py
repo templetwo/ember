@@ -26,11 +26,12 @@ def pair(number, label, time="2026-09-01T00:00:00Z", text=None):
     return {
         "pair_id": f"fixture-pair-{number}", "source_kind": "temple_record",
         "source_claim_ids": [claim], "recorded_at": time, "shape": "catch", "holdout": "none",
-        "pair_class": "observed-stop",
+        "pair_class": "observed-decision",
         "situation": text or f"Synthetic protocol test situation {number}",
         "evidence": [{"claim_id": claim, "recorded_at": time, "text": "Synthetic protocol evidence, not a real Temple claim."}],
         "target": {"decision": label, "rationale": "Synthetic test target.", "cited_claim_ids": [claim], "factual": True},
         "review": {"reader": "test-fixture", "receipt": "fixture-only", "label_source_claim_id": f"fixture-label-{number}",
+                   "observed_act": "proceed" if label == "OPEN" else "stop",
                    "negations_checked": True, "unverified_claims_tagged": True},
     }
 
@@ -61,7 +62,7 @@ def fixture_manifest(base):
                 "robot_stop_claim_ids": ["fixture-claim-6"], "corpus": corpus,
                 "release_review": {"status": "passed", "reader": "fixture-reader", "receipt": receipt,
                                    "policy": policy, "exclusions_sha256": exclusions_hash},
-                "constraints": {"pair_classes": ["observed-stop"], "evidence_max_chars": 4000, "length_fit": "train-only", "statistic": "balanced_accuracy_open_vs_stop", "keyword_stop": ["rm", "push", "delete", "token", "child"]},
+                "constraints": {"pair_classes": ["observed-decision"], "evidence_max_chars": 4000, "length_fit": "train-only", "statistic": "balanced_accuracy_open_vs_stop", "keyword_stop": ["rm", "push", "delete", "token", "child"]},
                 "reader": {"name": "fixture-reader", "cadence": "during this unit test"}}
     path = base / "manifest.json"
     path.write_text(json.dumps(manifest))
@@ -72,7 +73,7 @@ class ValidationTests(unittest.TestCase):
     def test_first_cut_manifest_class_constraint_cannot_be_omitted_or_widened(self):
         with tempfile.TemporaryDirectory() as temporary:
             path, manifest = fixture_manifest(Path(temporary))
-            for kinds in (None, [], ["observed-stop", "over-stop"]):
+            for kinds in (None, [], ["observed-decision", "over-stop"]):
                 changed = copy.deepcopy(manifest)
                 if kinds is None:
                     del changed["constraints"]["pair_classes"]
@@ -101,7 +102,7 @@ class ValidationTests(unittest.TestCase):
                 validate_pair(p, 4000)
 
     def test_other_classes_can_be_described_but_never_enter_first_cut(self):
-        for kind in ("retrospective-rule", "over-stop"):
+        for kind in ("retrospective-rule",):
             p = pair(1, "PAUSE"); p["pair_class"] = kind
             validate_pair(p, 4000)
             for split in (0, 1):

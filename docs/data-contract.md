@@ -13,12 +13,12 @@ Each JSONL row carries:
 | `source_claim_ids` | Nonempty source receipts, all present in evidence |
 | `recorded_at` | Timestamp of the recorded decision, with timezone |
 | `shape` | `catch`, `judged_gate`, `close`, `supersession`, `ruling`, or `open_thread` |
-| `pair_class` | `observed-stop`, `retrospective-rule`, or `over-stop`; mandatory, never inferred from the decision label |
+| `pair_class` | `observed-decision` or `retrospective-rule`; mandatory, never inferred from the decision label |
 | `holdout` | `none` or `robot_stop`; robot events must be on the manifest's reserved claim list |
 | `situation` | Reviewed situation text, excluding the answer |
 | `evidence` | Claim ID, timestamp, and reviewed query-window text per source |
 | `target` | Decision, rationale, cited claim IDs, and whether the response is factual |
-| `review` | Named reader, review receipt, `label_source_claim_id`, negations checked, unverified claims tagged |
+| `review` | Named reader, review receipt, `label_source_claim_id`, `observed_act` (`proceed` or `stop`), negations checked, unverified claims tagged |
 
 The parser rejects duplicate JSON keys and non-finite values. Evidence IDs must be unique within a row. Every target needs a cited receipt. Evidence timestamps cannot be later than the recorded decision. Evidence budgets count the complete rendered window, including IDs, timestamps, and separators. No automatic clipping or prefix selection occurs.
 
@@ -31,16 +31,31 @@ queue; the evaluator cannot infer it from a date-only account or authenticate a
 supplied timestamp. The target cites the pre-decision evidence claims. The catch
 that supports the label is identified separately by `review.label_source_claim_id`;
 that ID is forbidden in the evidence and consequently cannot be a target citation.
-This field is provenance for the review, not model input. Its presence does not
-prove that the reviewer read the source or that the label is correct.
+This field is provenance for the review, not model input. Ingestion also rejects
+its full ID in situation, every evidence text, target rationale and model-facing
+claim-ID fields. For a hexadecimal label ID, any prefix of 12 or more characters
+is rejected too. Comparisons remove whitespace and case-fold both IDs and searched
+text, without rewriting reviewed bytes. Evidence membership, duplicate detection,
+split grouping and robot reservations use the same normalized ID comparisons.
+This is a bounded literal check: it cannot recognize paraphrased label provenance
+or all encodings. A reviewer still checks that the evidence excludes the answer.
+The ID's presence in the review does not prove the source was read or the label is correct.
 
-The first-cut manifest requires `constraints.pair_classes: ["observed-stop"]`.
-Both splits reject `retrospective-rule` (a stop prescribed after the fact) and
-`over-stop` (the recorded error was excessive stopping), even when their rows pass
-the pair schema. Neither class may be silently translated into an observed stop
-or an OPEN label. `pair_class` describes the event; `target.decision` remains the
-separate OPEN/PAUSE/WITNESS judgment. Choosing the class and decision requires
-source review; schemas do not perform that judgment.
+The first-cut manifest requires `constraints.pair_classes: ["observed-decision"]`.
+The loader passes that field to the split validator; both train and heldout reject
+classes outside it. `retrospective-rule` remains representable for review but
+excluded from this cut. The former `observed-stop` and `over-stop` class values are
+rejected, not silently migrated.
+
+`review.observed_act` states what the seat actually did, as established by the
+record: `proceed` or `stop`. It is required and cannot be filled by guessing from
+the target label. An admitted `observed-decision` row must agree with its target
+on OPEN versus stop: `proceed` with OPEN, or `stop` with PAUSE/WITNESS. The validator
+derives `over-stop` for a recorded stop labelled OPEN and `hindsight-stop` for a
+recorded proceed labelled PAUSE/WITNESS. These are disagreement flags, not author
+selectable classes; either disagreement refuses admission. This check establishes
+internal consistency only. A reviewer must verify the observed act, class and label
+against the source. An unknown observed act stays in the draft queue.
 
 Authoring drafts remain in the private review queue. False review flags are honest
 draft metadata and intentionally fail this reviewed-corpus schema. Only the named
@@ -87,6 +102,11 @@ All three controls receive the same ordered heldout rows and use:
 Always-stop predicts PAUSE. Keyword-stop predicts PAUSE on whole-word matches from the five fixed keywords, otherwise OPEN. Length-stop fits its threshold and direction on training situation lengths only; equal training scores choose the smallest threshold, then the `>=` direction. Target text and evidence length are not inputs to any predictor.
 
 Reports include complete per-pair predictions, expected labels, confusion counts, denominators, stop rates, the fitted rule, file hashes, actual code hashes, dependency versions, constraints, and the manifest's reader. They intentionally omit raw situations and evidence. A baseline report contains no declare-before-verify score, entropy measure, model receipt rate, model OOM result, or deployment decision.
+
+`result.label_shape_class_counts` reports the joint label × shape × pair-class
+counts separately for train and heldout. The nonzero cells sum to each split's
+denominator. Inspect this table for source-shape confounding; it does not measure
+or correct that confounding, and the counts are never predictor inputs.
 
 ### Runtime provenance
 
