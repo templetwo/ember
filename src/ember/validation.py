@@ -130,6 +130,13 @@ def validate_pair(pair: dict, evidence_max_chars: int):
         raise InvalidCorpus("evidence exceeds budget; silent clipping is forbidden")
     decision = timestamp(pair["recorded_at"])
     precision = pair["recorded_at_precision"]
+    if precision == "clock":
+        if normalize_claim_id(pair["review"]["decision_claim_id"]) == normalize_claim_id(pair["review"]["label_source_claim_id"]):
+            raise InvalidCorpus("label source cannot be the clock decision proof")
+        for zone in (timezone.utc, ZoneInfo("America/New_York")):
+            local = decision.astimezone(zone)
+            if (local.hour, local.minute, local.second, local.microsecond) == (0, 0, 0, 0):
+                raise InvalidCorpus("clock precision cannot assert an exact UTC or Eastern midnight")
     if precision == "day":
         if decision != eastern_day_floor(pair["review"]["event_date"]):
             raise InvalidCorpus("day precision must use the resolved Eastern event-date midnight")
@@ -158,6 +165,8 @@ def linked_claim_ids(pair: dict) -> set[str]:
     if bounds:
         result.update(normalize_claim_id(bounds[k]) for k in ("start_claim_id", "end_claim_id"))
     result.update(normalize_claim_id(cid) for cid in pair["review"].get("event_date_claim_ids", []))
+    if "decision_claim_id" in pair["review"]:
+        result.add(normalize_claim_id(pair["review"]["decision_claim_id"]))
     return result
 
 
@@ -284,7 +293,14 @@ def validate_source_index(rows: dict, index: dict):
                 if stamp != timestamp(e["recorded_at"]):
                     raise InvalidCorpus("evidence timestamp differs from the chronology sidecar")
             label = by_row.get(pair["review"]["label_source_row_id"])
-            checked(label, pair["review"]["label_source_claim_id"])
+            label_filed_at = checked(label, pair["review"]["label_source_claim_id"])
+            if pair["recorded_at_precision"] == "clock":
+                cid = pair["review"]["decision_claim_id"]
+                matches = by_claim.get(normalize_claim_id(cid), [])
+                if len(matches) != 1:
+                    raise InvalidCorpus("clock decision proof is absent or ambiguous in source index")
+                if checked(matches[0], cid, evidence=True) != timestamp(pair["recorded_at"]):
+                    raise InvalidCorpus("clock decision differs from resolved source timestamp")
             if pair["recorded_at_precision"] == "day":
                 day = label.get("decision_day_review")
                 if (not day or not day["reader"].strip() or not day["receipt"].strip()
@@ -292,11 +308,13 @@ def validate_source_index(rows: dict, index: dict):
                         or {normalize_claim_id(cid) for cid in day["claim_ids"]}
                            != {normalize_claim_id(cid) for cid in pair["review"]["event_date_claim_ids"]}):
                     raise InvalidCorpus("Eastern event date lacks its matching source-review receipt")
+                if eastern_day_floor(day["event_date"]) > label_filed_at:
+                    raise InvalidCorpus("Eastern event date is later than the label filing")
                 for cid in day["claim_ids"]:
                     matches = by_claim.get(normalize_claim_id(cid), [])
                     if len(matches) != 1:
                         raise InvalidCorpus("event-date basis is absent or ambiguous")
-                    checked(matches[0], cid)
+                    checked(matches[0], cid, evidence=True)
             bounds = pair["review"].get("decision_time_bounds")
             if bounds:
                 for key, expected in (("start_claim_id", pair["recorded_at"]), ("end_claim_id", bounds["end_at"])):

@@ -183,6 +183,11 @@
             "minLength": 1,
             "maxLength": 128
           }
+        },
+        "decision_claim_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
         }
       }
     },
@@ -257,6 +262,35 @@
                     "event_date_claim_ids"
                   ]
                 }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "recorded_at_precision": {
+            "const": "clock"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "review": {
+            "required": [
+              "decision_claim_id"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "review": {
+            "not": {
+              "required": [
+                "decision_claim_id"
               ]
             }
           }

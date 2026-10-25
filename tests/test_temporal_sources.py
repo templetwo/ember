@@ -12,7 +12,8 @@ from test_p0 import pair,splits,CUT,fixture_manifest
 
 
 def timed(label='PAUSE',precision='clock'):
-    p=pair(1,label,'2026-09-10T00:00:00Z');p['recorded_at_precision']=precision
+    p=pair(1,label,'2026-09-10T13:00:00Z');p['recorded_at_precision']=precision
+    if precision!='clock':p['review'].pop('decision_claim_id')
     p['evidence'][0]['source_row_id']='fixture-row-1'
     p['review']['label_source_row_id']='fixture-label-row-1'
     if precision=='day':
@@ -79,8 +80,8 @@ class TemporalSourceTests(unittest.TestCase):
     def test_bounding_claims_bind_resolved_times_and_eligibility(self):
         p=timed(precision='bounded-by-records');index=index_for(p)
         p['review']['decision_time_bounds']={'start_claim_id':'fixture-bound-start',
-            'end_claim_id':'fixture-bound-end','end_at':'2026-09-10T00:10:00Z'}
-        for cid,stamp in (('fixture-bound-start',p['recorded_at']),('fixture-bound-end','2026-09-10T00:10:00Z')):
+            'end_claim_id':'fixture-bound-end','end_at':'2026-09-10T13:10:00Z'}
+        for cid,stamp in (('fixture-bound-start',p['recorded_at']),('fixture-bound-end','2026-09-10T13:10:00Z')):
             item=copy.deepcopy(index['rows'][0]);item.update(source_row_id=cid,claim_id=cid,source_utc=stamp)
             index['rows'].append(item)
         rows={'train':[p],'heldout':[]};v.validate_source_index(rows,index)
@@ -101,9 +102,9 @@ class TemporalSourceTests(unittest.TestCase):
     def test_bounded_window_needs_receipts_and_valid_upper_endpoint(self):
         p=timed(precision='bounded-by-records')
         with self.assertRaises(InvalidCorpus):v.validate_pair(p,4000)
-        p['review']['decision_time_bounds']={'start_claim_id':'fixture-bound-start','end_claim_id':'fixture-bound-end','end_at':'2026-09-10T00:10:00Z'}
+        p['review']['decision_time_bounds']={'start_claim_id':'fixture-bound-start','end_claim_id':'fixture-bound-end','end_at':'2026-09-10T13:10:00Z'}
         v.validate_pair(p,4000)
-        for stamp in ('2026-09-09T00:00:00Z','2026-09-10T00:00:00Z'):
+        for stamp in ('2026-09-09T00:00:00Z','2026-09-10T13:00:00Z'):
             p['review']['decision_time_bounds']['end_at']=stamp
             with self.assertRaisesRegex(InvalidCorpus,'decision window'):v.validate_pair(p,4000)
 
@@ -111,7 +112,7 @@ class TemporalSourceTests(unittest.TestCase):
         for day in ('2026-09-29','2026-09-30','2026-10-01'):
             for split in (0,1):
                 train,held=splits();p=(train,held)[split][0]
-                p['recorded_at_precision']='day';p['recorded_at']=day+'T04:00:00Z'
+                p['recorded_at_precision']='day';p['recorded_at']=day+'T04:00:00Z';p['review'].pop('decision_claim_id')
                 p['review']['event_date']=day;p['review']['event_date_claim_ids']=['fixture-date-'+p['pair_id']]
                 p['evidence'][0]['recorded_at']='2026-08-01T00:00:00Z'
                 with self.subTest(day=day,split=split),self.assertRaisesRegex(InvalidCorpus,'day precision.*freeze'):
@@ -121,13 +122,13 @@ class TemporalSourceTests(unittest.TestCase):
         train,held=splits()
         for rows,day in ((train,'2026-09-28'),(held,'2026-10-02')):
             for p in rows:
-                p['recorded_at_precision']='day';p['recorded_at']=day+'T04:00:00Z'
+                p['recorded_at_precision']='day';p['recorded_at']=day+'T04:00:00Z';p['review'].pop('decision_claim_id')
                 p['review']['event_date']=day;p['review']['event_date_claim_ids']=['fixture-date-'+p['pair_id']]
                 p['evidence'][0]['recorded_at']='2026-08-01T00:00:00Z'
         v.validate_split(train,held,CUT,4000)
 
     def test_bounded_window_cannot_straddle_freeze(self):
-        train,held=splits();p=train[0];p['recorded_at_precision']='bounded-by-records'
+        train,held=splits();p=train[0];p['recorded_at_precision']='bounded-by-records';p['review'].pop('decision_claim_id')
         p['review']['decision_time_bounds']={'start_claim_id':'fixture-bound-start','end_claim_id':'fixture-bound-end','end_at':'2026-10-02T00:00:00Z'}
         with self.assertRaisesRegex(InvalidCorpus,'decision window.*freeze'):v.validate_split(train,held,CUT,4000)
 
@@ -135,7 +136,7 @@ class TemporalSourceTests(unittest.TestCase):
         train,held=splits();p=held[0]
         p['evidence'].append(copy.deepcopy(train[0]['evidence'][0]))
         with self.assertRaisesRegex(InvalidCorpus,'overlap'):v.validate_split(train,held,CUT,4000)
-        train,held=splits();p=held[0];p['recorded_at_precision']='bounded-by-records'
+        train,held=splits();p=held[0];p['recorded_at_precision']='bounded-by-records';p['review'].pop('decision_claim_id')
         p['review']['decision_time_bounds']={'start_claim_id':train[0]['review']['label_source_claim_id'],'end_claim_id':'fixture-bound-end','end_at':'2026-10-02T00:00:00Z'}
         with self.assertRaisesRegex(InvalidCorpus,'overlap'):v.validate_split(train,held,CUT,4000)
 

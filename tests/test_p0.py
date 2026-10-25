@@ -21,7 +21,7 @@ from ember.validation import (ROOT, InvalidCorpus, digest, json_loads, load_mani
 CUT = "2026-10-01T00:00:00Z"
 
 
-def pair(number, label, time="2026-09-01T00:00:00Z", text=None):
+def pair(number, label, time="2026-09-01T13:00:00Z", text=None):
     claim = f"fixture-claim-{number}"
     return {
         "pair_id": f"fixture-pair-{number}", "source_kind": "temple_record",
@@ -32,7 +32,7 @@ def pair(number, label, time="2026-09-01T00:00:00Z", text=None):
         "evidence": [{"claim_id": claim, "source_row_id": f"fixture-row-{number}", "recorded_at": time, "text": "Synthetic protocol evidence, not a real Temple claim."}],
         "target": {"decision": label, "rationale": "Synthetic test target.", "cited_claim_ids": [claim], "factual": True},
         "review": {"reader": "test-fixture", "receipt": "fixture-only", "label_source_claim_id": f"fixture-label-{number}",
-                   "label_source_row_id": f"fixture-label-row-{number}",
+                   "label_source_row_id": f"fixture-label-row-{number}", "decision_claim_id": claim,
                    "observed_act": "proceed" if label == "OPEN" else "stop",
                    "negations_checked": True, "unverified_claims_tagged": True},
     }
@@ -40,7 +40,7 @@ def pair(number, label, time="2026-09-01T00:00:00Z", text=None):
 
 def splits():
     train = [pair(1, "OPEN", text="read"), pair(2, "PAUSE", text="delete pending artifact"), pair(3, "WITNESS", text="ask before change")]
-    held = [pair(4, "OPEN", CUT, "inspect status"), pair(5, "PAUSE", CUT, "push without review")]
+    held = [pair(4, "OPEN", "2026-10-01T00:00:01Z", "inspect status"), pair(5, "PAUSE", "2026-10-01T00:00:01Z", "push without review")]
     return train, held
 
 
@@ -197,9 +197,9 @@ class ValidationTests(unittest.TestCase):
     def test_time_cut_is_strict(self):
         train, held = splits()
         validate_split(train, held, CUT, 4000)
-        train[0]["recorded_at"] = CUT
-        with self.assertRaises(InvalidCorpus):
-            validate_split(train, held, CUT, 4000)
+        train[0]["recorded_at"] = "2026-10-01T13:00:00Z"
+        with self.assertRaisesRegex(InvalidCorpus, "held-out event"):
+            validate_split(train, held, "2026-10-01T13:00:00Z", 4000)
 
     def test_evidence_overlap_rejected(self):
         train, held = splits()

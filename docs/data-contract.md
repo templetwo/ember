@@ -66,7 +66,16 @@ old trial bytes remain review inputs, not an accepted corpus.
 
 ### Decision-time precision
 
-For `clock`, evidence may be filed at or before the decision instant. For `day`,
+For `clock`, evidence may be filed at or before the decision instant.
+`review.decision_claim_id` is required, must differ from the label source, and
+must resolve to a unique eligible non-seed index row whose instant equals
+`recorded_at`. It may name an evidence claim or a separate review-only source.
+Exact UTC midnight and exact Eastern midnight are refused as clock values, even
+with a matching source, to prevent date-only placeholders bypassing day precision.
+The reviewer still establishes that the source records the decision itself.
+Other precision classes cannot carry `decision_claim_id`.
+
+For `day`,
 the reviewer first resolves the Eastern **event date**, recorded as
 `review.event_date`, with supporting `review.event_date_claim_ids`. The label
 source's metadata must carry a matching `decision_day_review` with those fields,
@@ -75,6 +84,10 @@ date. `recorded_at` must equal that date's midnight in `America/New_York`, conve
 to an explicit-offset instant (04:00 UTC in summer, 05:00 UTC in winter). Only
 evidence strictly earlier than that floor is admitted. The evaluator checks the
 review binding and floor; the reviewer establishes what date the record supports.
+The floor must be at or before the label row's filing instant. Every event-date
+basis claim must be eligible and non-seed, including when the label itself is
+named as the basis. A seed label needs separate non-seed evidence establishing
+the event date; without it the pair remains held.
 
 For `bounded-by-records`, `review.decision_time_bounds` requires `start_claim_id`,
 `end_claim_id`, and `end_at`. The distinct bounding claims must differ from the
@@ -99,8 +112,15 @@ Private preparation recomputes timezone-less live-server clocks in
 Unresolved vault-import clocks stay null and cannot be used. Nonexistent or
 ambiguous local clocks are refused. No timezone is guessed from the machine's
 current setting. Any source review hold blocks selection. Seed-backfill rows
-cannot supply earlier evidence or decision bounds; they may supply later label
+cannot supply earlier evidence, clock decision proof, decision bounds, or an
+event-date basis; they may supply later label
 provenance subject to the other reviews.
+
+The private builder classifies the established `seed-`/`seed_` domain-tag family
+as seed backfill. Other tags containing `seed` or `backfill` add an explicit
+classification hold, rather than silently treating the row as eligible or
+asserting that the tag proves seed origin. Metadata inspection alone cannot
+settle those rows' provenance.
 
 Name status defaults to `pending`, never cleared by a detector's silence. A
 selected source requires a named review receipt with `no-person-named`, or
@@ -127,12 +147,15 @@ prevents reusing that evidence in training. A later catch filing does not move a
 earlier decision into heldout. Training/validation subdivision must enforce the
 same evidence-plus-label grouping, and label-source IDs must stay out of exports.
 
-Grouping also includes bounding claims and event-date supporting claims, across
+Grouping also includes clock decision claims, bounding claims and event-date supporting claims, across
 all roles. Shared evidence cannot cross splits even when label sources differ.
 A day-precision row is excluded from both splits if its Eastern calendar date is
 within one day of the freeze's Eastern calendar date, including reserved robot
 rows. A bounded window with start before the freeze and end at or after it is
 also excluded. These guards apply before ordinary temporal and robot assignment.
+Source-bound clock decisions keep exact-instant split semantics, including near
+the freeze; they do not inherit the day-precision uncertainty interval. A clock
+without its source binding cannot pass manifest loading.
 
 `release_review.status` must be `passed`. The separate receipt file has these fields:
 
