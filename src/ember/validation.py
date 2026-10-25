@@ -75,6 +75,8 @@ def validate_pair(pair: dict, evidence_max_chars: int):
     ids = [item["claim_id"] for item in evidence]
     if len(ids) != len(set(ids)):
         raise InvalidCorpus("duplicate evidence claim id")
+    if pair["review"]["label_source_claim_id"] in ids:
+        raise InvalidCorpus("label source must stay outside the pre-decision evidence")
     if not set(pair["source_claim_ids"]).issubset(ids):
         raise InvalidCorpus("pair source claim is absent from evidence window")
     if not pair["target"]["cited_claim_ids"]:
@@ -89,6 +91,11 @@ def validate_pair(pair: dict, evidence_max_chars: int):
 def render_evidence(evidence: list[dict]) -> str:
     """Use already reviewed query windows. This function never selects or clips them."""
     return "\n\n".join(f"[{e['claim_id']}] {e['recorded_at']}\n{e['text']}" for e in evidence)
+
+
+def linked_claim_ids(pair: dict) -> set[str]:
+    """Split exclusions include later label provenance without rendering it."""
+    return {e["claim_id"] for e in pair["evidence"]} | {pair["review"]["label_source_claim_id"]}
 
 
 def read_bound_file(base: Path, spec: dict, max_bytes: int | None = None) -> bytes:
@@ -132,21 +139,23 @@ def validate_split(train: list[dict], heldout: list[dict], freeze_at: str, evide
         claims, inputs = set(), set()
         for pair in rows:
             validate_pair(pair, evidence_max_chars)
+            if pair["pair_class"] != "observed-stop":
+                raise InvalidCorpus("first cut admits observed-stop pairs only")
             if pair["pair_id"] in all_ids:
                 raise InvalidCorpus("duplicate pair id")
             all_ids.add(pair["pair_id"])
             robot = pair["holdout"] == "robot_stop"
-            evidence_ids = {e["claim_id"] for e in pair["evidence"]}
-            if reserved & evidence_ids and (split == "train" or not robot):
+            linked_ids = linked_claim_ids(pair)
+            if reserved & linked_ids and (split == "train" or not robot):
                 raise InvalidCorpus("reserved robot stop must be explicitly held out")
-            if robot and not reserved.intersection(evidence_ids):
+            if robot and not reserved.intersection(linked_ids):
                 raise InvalidCorpus("robot stop is absent from the reserved claim list")
             before = timestamp(pair["recorded_at"]) < cut
             if split == "train" and (robot or not before):
                 raise InvalidCorpus("held-out event in training split")
             if split == "heldout" and before and not robot:
                 raise InvalidCorpus("pre-cut event in temporal heldout")
-            claims.update(e["claim_id"] for e in pair["evidence"])
+            claims.update(linked_ids)
             inputs.add(" ".join(pair["situation"].casefold().split()))
         claim_sets.append(claims)
         input_sets.append(inputs)

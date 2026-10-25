@@ -13,15 +13,40 @@ Each JSONL row carries:
 | `source_claim_ids` | Nonempty source receipts, all present in evidence |
 | `recorded_at` | Timestamp of the recorded decision, with timezone |
 | `shape` | `catch`, `judged_gate`, `close`, `supersession`, `ruling`, or `open_thread` |
+| `pair_class` | `observed-stop`, `retrospective-rule`, or `over-stop`; mandatory, never inferred from the decision label |
 | `holdout` | `none` or `robot_stop`; robot events must be on the manifest's reserved claim list |
 | `situation` | Reviewed situation text, excluding the answer |
 | `evidence` | Claim ID, timestamp, and reviewed query-window text per source |
 | `target` | Decision, rationale, cited claim IDs, and whether the response is factual |
-| `review` | Named reader, review receipt, negations checked, unverified claims tagged |
+| `review` | Named reader, review receipt, `label_source_claim_id`, negations checked, unverified claims tagged |
 
 The parser rejects duplicate JSON keys and non-finite values. Evidence IDs must be unique within a row. Every target needs a cited receipt. Evidence timestamps cannot be later than the recorded decision. Evidence budgets count the complete rendered window, including IDs, timestamps, and separators. No automatic clipping or prefix selection occurs.
 
 The target's citation IDs must name structured evidence items. This does not establish that the prose follows from the cited text, that the source was quoted faithfully before release, or that an event really happened. A human reviews those meanings.
+
+For catch-derived pairs, evidence contains only claims available to the acting seat
+at the decision time. `recorded_at` is that decision time, never the later catch's
+filing timestamp. An unresolved decision time stays unresolved in the authoring
+queue; the evaluator cannot infer it from a date-only account or authenticate a
+supplied timestamp. The target cites the pre-decision evidence claims. The catch
+that supports the label is identified separately by `review.label_source_claim_id`;
+that ID is forbidden in the evidence and consequently cannot be a target citation.
+This field is provenance for the review, not model input. Its presence does not
+prove that the reviewer read the source or that the label is correct.
+
+The first-cut manifest requires `constraints.pair_classes: ["observed-stop"]`.
+Both splits reject `retrospective-rule` (a stop prescribed after the fact) and
+`over-stop` (the recorded error was excessive stopping), even when their rows pass
+the pair schema. Neither class may be silently translated into an observed stop
+or an OPEN label. `pair_class` describes the event; `target.decision` remains the
+separate OPEN/PAUSE/WITNESS judgment. Choosing the class and decision requires
+source review; schemas do not perform that judgment.
+
+Authoring drafts remain in the private review queue. False review flags are honest
+draft metadata and intentionally fail this reviewed-corpus schema. Only the named
+reviewer supplies the completed attestations. There is no automatic migration of
+old rows missing the new fields. These are pre-P0 amendments to the 0.1 contract;
+old trial bytes remain review inputs, not an accepted corpus.
 
 ## A manifest
 
@@ -29,7 +54,15 @@ The target's citation IDs must name structured evidence items. This does not est
 
 The manifest binds train and heldout JSONL byte hashes, the freeze timestamp, reserved robot-stop claim IDs, release-review receipt, release-policy file, exclusion document hash, constraints, and the run's reader/cadence.
 
-Training decisions must predate the freeze. Temporal heldout decisions must be at or after it. Reserved robot-stop decisions are always held out, including events before the freeze. Every reserved claim must occur in the heldout evidence, and must be tagged `robot_stop`. No evidence claim or normalized identical situation may cross splits. Each training class must represent at least one quarter of the training rows. Both binary classes must occur in each split for balanced accuracy to be defined.
+Training decisions must predate the freeze. Temporal heldout decisions must be at or after it. Reserved robot-stop decisions are always held out, including events before the freeze. Every reserved claim must occur in the heldout evidence or label-source provenance, and must be tagged `robot_stop`. No evidence or label-source claim, including an evidence-to-label match, or normalized identical situation may cross splits. Each training class must represent at least one quarter of the training rows. Both binary classes must occur in each split for balanced accuracy to be defined.
+
+Related pairs sharing a label-source claim stay together even if their evidence
+windows differ. Other related-event links still need explicit human grouping before
+the split. A pre-decision evidence claim can predate the freeze while supporting a
+heldout decision; the decision selects the temporal split, and claim grouping
+prevents reusing that evidence in training. A later catch filing does not move an
+earlier decision into heldout. Training/validation subdivision must enforce the
+same evidence-plus-label grouping, and label-source IDs must stay out of exports.
 
 `release_review.status` must be `passed`. The separate receipt file has these fields:
 

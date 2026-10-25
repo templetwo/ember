@@ -2,6 +2,7 @@
 import contextlib
 import io
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -34,6 +35,33 @@ def candidate_fixture(base, text="Synthetic scanner fixture", needles=None):
 
 
 class MatcherTests(unittest.TestCase):
+    def test_each_rule_must_detect_and_reject_its_controls(self):
+        for name in release.PATTERNS:
+            for mutant in (r"(?!)", r".*"):
+                with self.subTest(name=name, mutant=mutant), patch.dict(
+                        release.PATTERNS, {name: re.compile(mutant)}):
+                    with self.assertRaises(InvalidCorpus):
+                        release.controls()
+
+    def test_reviewed_alternative_and_length_mutations_are_detected(self):
+        mutations = [
+            ("grant-id", release.SHAPES["grant-id"].replace("token|token_id|arrival|grant", "grant")),
+            ("grant-id", release.SHAPES["grant-id"].replace("{12}", "{4,}")),
+            ("urlsafe-43", release.SHAPES["urlsafe-43"].replace("{43}", "{40,}")),
+            ("urlsafe-43", r"[A-Za-z0-9_-]{43}"),
+            ("aws-key-id", release.SHAPES["aws-key-id"].replace("{16}", "{12,}")),
+            ("bearer-header", release.SHAPES["bearer-header"].replace("{20,}", "{6,}")),
+            ("bridge-bearer", r"\bsvs_[A-Za-z0-9_-]{16,32}\b"),
+            ("private-key-block", r"-----BEGIN (?:RSA|EC) PRIVATE KEY-----"),
+            ("secret-assignment", release.SHAPES["secret-assignment"].replace(
+                "api[_-]?key|secret|password|passwd|token", "api[_-]?key|password")),
+        ]
+        for name, mutant in mutations:
+            with self.subTest(name=name, mutant=mutant), patch.dict(
+                    release.PATTERNS, {name: re.compile(mutant)}):
+                with self.assertRaises(InvalidCorpus):
+                    release.controls()
+
     def test_shape_controls_use_real_matcher(self):
         self.assertEqual(release.controls(), 17)
         with patch.dict(release.PATTERNS, {"bridge-bearer": __import__("re").compile(r"(?!)")}):

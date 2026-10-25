@@ -26,8 +26,9 @@
     },
     "constraints": {
       "type": "object", "additionalProperties": false,
-      "required": ["evidence_max_chars", "length_fit", "statistic", "keyword_stop"],
+      "required": ["pair_classes", "evidence_max_chars", "length_fit", "statistic", "keyword_stop"],
       "properties": {
+        "pair_classes": {"const": ["observed-stop"]},
         "evidence_max_chars": {"type": "integer", "minimum": 1},
         "length_fit": {"const": "train-only"},
         "statistic": {"const": "balanced_accuracy_open_vs_stop"},

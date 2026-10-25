@@ -66,6 +66,44 @@ def scan_text(text: str, needles: list[str]) -> tuple[list[str], bool]:
     raise AssertionError("unreachable")
 
 
+def _boundary_controls() -> dict[str, tuple[list[str], list[str]]]:
+    """Independent synthetic expectations, not examples derived from the regexes."""
+    cases = {}
+    for name, prefix, minimum in (
+        ("bridge-bearer", "svs_", 16), ("connector-refresh", "cbr_", 20),
+        ("openai-key", "sk-", 20), ("github-classic", "ghp_", 30),
+        ("github-fine-grained", "github_pat_", 30), ("slack-token", "xoxb-", 10),
+        ("xai-key", "xai-", 20), ("google-key", "AIza", 30),
+        ("anthropic-key", "sk-ant-", 20), ("bearer-header", "Bearer ", 20),
+        ("auth-header", "Authorization: ", 20),
+        ("secret-assignment", "password=", 16),
+    ):
+        cases[name] = ([prefix + "a" * minimum, prefix + "a" * 128],
+                       [prefix + "a" * (minimum - 1)])
+    cases["bridge-bearer"][0].append("svs_" + "a" * 16 + "-")
+    cases["github-classic"][0].extend("gh" + kind + "_" + "a" * 30 for kind in "pousr")
+    cases["slack-token"][0].extend("xox" + kind + "-" + "a" * 10 for kind in "abprs")
+    cases["secret-assignment"][0].extend(
+        key + separator + "a" * 16
+        for key in ("apikey", "api_key", "api-key", "secret", "password", "passwd", "token")
+        for separator in ("=", ":"))
+    cases["aws-key-id"] = (["AKIA" + "A" * 16],
+                           ["AKIA" + "A" * n for n in (15, 17)])
+    cases["urlsafe-43"] = (["a" * 43], ["a" * 42, "a" * 44, "_" + "a" * 43, "a" * 43 + "-"])
+    cases["grant-id"] = (
+        [key + " " + "a" * 12 for key in ("token", "token_id", "arrival", "grant")]
+        + ["arq_" + "a" * n for n in (20, 128)],
+        ["grant " + "a" * n for n in (11, 13)] + ["arq_" + "a" * 19])
+    cases["private-key-block"] = (
+        ["-----BEGIN " + kind + "PRIVATE KEY-----"
+         for kind in ("", "RSA ", "EC ", "OPENSSH ", "DSA ", "ENCRYPTED ")],
+        ["-----BEGIN PUBLIC KEY-----", "-----BEGIN RSA PRIVATE KEY----"])
+    cases["jwt"] = (["eyJ" + "a" * 10 + "." + "a" * 10 + "." + "a" * 10],
+                    ["eyJ" + "a" * a + "." + "a" * b + "." + "a" * c
+                     for a, b, c in ((9, 10, 10), (10, 9, 10), (10, 10, 9))])
+    return cases
+
+
 def controls() -> int:
     """Synthetic matcher controls; never corpus rows and never printed."""
     values = {
@@ -117,6 +155,17 @@ def controls() -> int:
         hits, complete = scan_text(clean, [])
         if hits or not complete:
             raise InvalidCorpus("candidate scanner negative control failed")
+    boundaries = _boundary_controls()
+    if boundaries.keys() != PATTERNS.keys():
+        raise InvalidCorpus("candidate scanner boundary coverage mismatch")
+    for name, (positives, negatives) in boundaries.items():
+        for example in positives:
+            match = PATTERNS[name].search(example)
+            if match is None or match.span() != (0, len(example)):
+                raise InvalidCorpus("candidate scanner boundary positive failed")
+        # Rule-specific: overlapping credential classes may legitimately match.
+        if any(PATTERNS[name].search(example) for example in negatives):
+            raise InvalidCorpus("candidate scanner boundary negative failed")
     return len(values)
 
 

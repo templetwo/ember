@@ -26,10 +26,12 @@ def pair(number, label, time="2026-09-01T00:00:00Z", text=None):
     return {
         "pair_id": f"fixture-pair-{number}", "source_kind": "temple_record",
         "source_claim_ids": [claim], "recorded_at": time, "shape": "catch", "holdout": "none",
+        "pair_class": "observed-stop",
         "situation": text or f"Synthetic protocol test situation {number}",
         "evidence": [{"claim_id": claim, "recorded_at": time, "text": "Synthetic protocol evidence, not a real Temple claim."}],
         "target": {"decision": label, "rationale": "Synthetic test target.", "cited_claim_ids": [claim], "factual": True},
-        "review": {"reader": "test-fixture", "receipt": "fixture-only", "negations_checked": True, "unverified_claims_tagged": True},
+        "review": {"reader": "test-fixture", "receipt": "fixture-only", "label_source_claim_id": f"fixture-label-{number}",
+                   "negations_checked": True, "unverified_claims_tagged": True},
     }
 
 
@@ -59,7 +61,7 @@ def fixture_manifest(base):
                 "robot_stop_claim_ids": ["fixture-claim-6"], "corpus": corpus,
                 "release_review": {"status": "passed", "reader": "fixture-reader", "receipt": receipt,
                                    "policy": policy, "exclusions_sha256": exclusions_hash},
-                "constraints": {"evidence_max_chars": 4000, "length_fit": "train-only", "statistic": "balanced_accuracy_open_vs_stop", "keyword_stop": ["rm", "push", "delete", "token", "child"]},
+                "constraints": {"pair_classes": ["observed-stop"], "evidence_max_chars": 4000, "length_fit": "train-only", "statistic": "balanced_accuracy_open_vs_stop", "keyword_stop": ["rm", "push", "delete", "token", "child"]},
                 "reader": {"name": "fixture-reader", "cadence": "during this unit test"}}
     path = base / "manifest.json"
     path.write_text(json.dumps(manifest))
@@ -67,6 +69,68 @@ def fixture_manifest(base):
 
 
 class ValidationTests(unittest.TestCase):
+    def test_first_cut_manifest_class_constraint_cannot_be_omitted_or_widened(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path, manifest = fixture_manifest(Path(temporary))
+            for kinds in (None, [], ["observed-stop", "over-stop"]):
+                changed = copy.deepcopy(manifest)
+                if kinds is None:
+                    del changed["constraints"]["pair_classes"]
+                else:
+                    changed["constraints"]["pair_classes"] = kinds
+                path.write_text(json.dumps(changed))
+                with self.subTest(kinds=kinds), self.assertRaises(InvalidCorpus):
+                    load_manifest(path)
+
+    def test_label_source_stays_outside_evidence_and_target(self):
+        p = pair(1, "PAUSE")
+        validate_pair(p, 4000)
+        p["review"]["label_source_claim_id"] = p["evidence"][0]["claim_id"]
+        with self.assertRaisesRegex(InvalidCorpus, "label source"):
+            validate_pair(p, 4000)
+        p = pair(1, "PAUSE")
+        p["target"]["cited_claim_ids"] = [p["review"]["label_source_claim_id"]]
+        with self.assertRaises(InvalidCorpus):
+            validate_pair(p, 4000)
+
+    def test_pair_class_and_label_source_are_required_without_defaults(self):
+        for field in ("pair_class", "label_source_claim_id"):
+            p = pair(1, "OPEN")
+            del (p if field == "pair_class" else p["review"])[field]
+            with self.assertRaises(InvalidCorpus):
+                validate_pair(p, 4000)
+
+    def test_other_classes_can_be_described_but_never_enter_first_cut(self):
+        for kind in ("retrospective-rule", "over-stop"):
+            p = pair(1, "PAUSE"); p["pair_class"] = kind
+            validate_pair(p, 4000)
+            for split in (0, 1):
+                train, held = splits()
+                (train, held)[split][0]["pair_class"] = kind
+                with self.subTest(kind=kind, split=split), self.assertRaisesRegex(InvalidCorpus, "first cut"):
+                    validate_split(train, held, CUT, 4000)
+
+    def test_label_source_cannot_cross_splits_even_with_different_evidence(self):
+        train, held = splits()
+        held[0]["review"]["label_source_claim_id"] = train[0]["review"]["label_source_claim_id"]
+        with self.assertRaisesRegex(InvalidCorpus, "overlap"):
+            validate_split(train, held, CUT, 4000)
+
+    def test_label_source_overlapping_other_split_evidence_is_also_refused(self):
+        train, held = splits()
+        held[0]["review"]["label_source_claim_id"] = train[0]["evidence"][0]["claim_id"]
+        with self.assertRaisesRegex(InvalidCorpus, "overlap"):
+            validate_split(train, held, CUT, 4000)
+
+    def test_reserved_label_source_is_held_out(self):
+        train, held = splits()
+        held[0]["holdout"] = "robot_stop"
+        reserved = [held[0]["review"]["label_source_claim_id"]]
+        validate_split(train, held, CUT, 4000, reserved)
+        held[0]["holdout"] = "none"
+        with self.assertRaises(InvalidCorpus):
+            validate_split(train, held, CUT, 4000, reserved)
+
     def test_valid_reviewed_pair(self):
         validate_pair(pair(1, "PAUSE"), 4000)
 
