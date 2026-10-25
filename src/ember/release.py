@@ -225,6 +225,6 @@ def scan_candidate(path: Path) -> dict:
             "Clear means no configured literal or credential-shape match, not release approval.",
             "Policy bytes are bound; only their scope is interpreted by this scanner.",
             "No source retrieval, drawer lookup, name replacement, or corpus rewriting occurs.",
-            "Source eligibility, letters, semantic review, time cut, and split validation remain separate.",
+            "Source eligibility, letters, semantic review, and group split validation remain separate.",
         ],
     }

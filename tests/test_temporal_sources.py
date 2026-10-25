@@ -26,8 +26,7 @@ def timed(label='PAUSE',precision='clock'):
 def index_for(p):
     def item(rid,cid,stamp):
         return dict(source_row_id=rid,claim_id=cid,source_utc=stamp,record_sha256='0'*64,
-                    timestamp_basis='explicit-source-offset',seed_backfill=False,review_holds=[],
-                    name_screen={'status':'no-person-named','reader':'fixture-reviewer','receipt':'fixture-only','public_record_refs':[]})
+                    timestamp_basis='explicit-source-offset',seed_backfill=False,review_holds=[])
     result = {'schema_version':'0.1','rows':[
         item(p['evidence'][0]['source_row_id'],p['evidence'][0]['claim_id'],p['evidence'][0]['recorded_at']),
         item(p['review']['label_source_row_id'],p['review']['label_source_claim_id'],'2026-09-11T00:00:00Z')]}
@@ -111,37 +110,37 @@ class TemporalSourceTests(unittest.TestCase):
             p['review']['decision_time_bounds']['end_at']=stamp
             with self.assertRaisesRegex(InvalidCorpus,'decision window'):v.validate_pair(p,4000)
 
-    def test_day_rows_near_freeze_are_excluded_in_both_splits(self):
+    def test_day_rows_near_former_cut_are_allowed_in_both_splits(self):
         for day in ('2026-09-29','2026-09-30','2026-10-01'):
             for split in (0,1):
                 train,held=splits();p=(train,held)[split][0]
                 p['recorded_at_precision']='day';p['recorded_at']=day+'T04:00:00Z';p['review'].pop('decision_claim_id')
                 p['review']['event_date']=day;p['review']['event_date_claim_ids']=['fixture-date-'+p['pair_id']]
                 p['evidence'][0]['recorded_at']='2026-08-01T00:00:00Z'
-                with self.subTest(day=day,split=split),self.assertRaisesRegex(InvalidCorpus,'day precision.*freeze'):
-                    v.validate_split(train,held,CUT,4000)
+                with self.subTest(day=day,split=split):
+                    v.validate_split(train,held,4000)
 
-    def test_day_rows_two_days_away_are_admitted(self):
+    def test_day_rows_on_different_dates_are_admitted(self):
         train,held=splits()
         for rows,day in ((train,'2026-09-28'),(held,'2026-10-02')):
             for p in rows:
                 p['recorded_at_precision']='day';p['recorded_at']=day+'T04:00:00Z';p['review'].pop('decision_claim_id')
                 p['review']['event_date']=day;p['review']['event_date_claim_ids']=['fixture-date-'+p['pair_id']]
                 p['evidence'][0]['recorded_at']='2026-08-01T00:00:00Z'
-        v.validate_split(train,held,CUT,4000)
+        v.validate_split(train,held,4000)
 
-    def test_bounded_window_cannot_straddle_freeze(self):
+    def test_window_has_no_cut_guard(self):
         train,held=splits();p=train[0];p['recorded_at_precision']='bounded-by-records';p['review'].pop('decision_claim_id')
         p['review']['decision_time_bounds']={'start_claim_id':'fixture-bound-start','end_claim_id':'fixture-bound-end','end_at':'2026-10-02T00:00:00Z'}
-        with self.assertRaisesRegex(InvalidCorpus,'decision window.*freeze'):v.validate_split(train,held,CUT,4000)
+        v.validate_split(train,held,4000)
 
     def test_shared_evidence_and_bound_ids_cannot_cross_splits(self):
         train,held=splits();p=held[0]
         p['evidence'].append(copy.deepcopy(train[0]['evidence'][0]))
-        with self.assertRaisesRegex(InvalidCorpus,'overlap'):v.validate_split(train,held,CUT,4000)
+        with self.assertRaisesRegex(InvalidCorpus,'overlap'):v.validate_split(train,held,4000)
         train,held=splits();p=held[0];p['recorded_at_precision']='bounded-by-records';p['review'].pop('decision_claim_id')
         p['review']['decision_time_bounds']={'start_claim_id':train[0]['review']['label_source_claim_id'],'end_claim_id':'fixture-bound-end','end_at':'2026-10-02T00:00:00Z'}
-        with self.assertRaisesRegex(InvalidCorpus,'overlap'):v.validate_split(train,held,CUT,4000)
+        with self.assertRaisesRegex(InvalidCorpus,'overlap'):v.validate_split(train,held,4000)
 
     def test_metadata_index_binds_evidence_to_resolved_time_and_row(self):
         p=timed();index=index_for(p);v.validate_source_index({'train':[p],'heldout':[]},index)
@@ -155,14 +154,10 @@ class TemporalSourceTests(unittest.TestCase):
         index['rows'][0]['seed_backfill']=True
         with self.assertRaisesRegex(InvalidCorpus,'seed'):v.validate_source_index({'train':[p],'heldout':[]},index)
 
-    def test_missing_or_held_name_screen_is_never_clear(self):
+    def test_legacy_name_screen_field_is_not_part_of_current_contract(self):
         p=timed();index=index_for(p)
-        for screen in (None,{'status':'pending'},{'status':'held','reader':'fixture','receipt':'fixture-only','public_record_refs':[]}):
-            changed=copy.deepcopy(index);changed['rows'][0]['name_screen']=screen
-            with self.subTest(screen=screen),self.assertRaises(InvalidCorpus):v.validate_source_index({'train':[p],'heldout':[]},changed)
-        index['rows'][0]['name_screen']['status']='public-record-only'
-        with self.assertRaises(InvalidCorpus):v.validate_source_index({'train':[p],'heldout':[]},index)
-        index['rows'][0]['name_screen']['public_record_refs']=['https://example.invalid/synthetic-public-receipt']
         v.validate_source_index({'train':[p],'heldout':[]},index)
+        index['rows'][0]['name_screen']={'status':'pending'}
+        with self.assertRaises(InvalidCorpus):v.validate_source_index({'train':[p],'heldout':[]},index)
 
 if __name__=='__main__':unittest.main()

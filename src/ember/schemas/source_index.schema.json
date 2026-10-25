@@ -36,8 +36,7 @@
           "record_sha256",
           "timestamp_basis",
           "seed_backfill",
-          "review_holds",
-          "name_screen"
+          "review_holds"
         ],
         "properties": {
           "source_row_id": {
@@ -73,40 +72,6 @@
             "type": "array",
             "items": {
               "type": "string"
-            }
-          },
-          "name_screen": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "status",
-              "reader",
-              "receipt",
-              "public_record_refs"
-            ],
-            "properties": {
-              "status": {
-                "enum": [
-                  "pending",
-                  "held",
-                  "no-person-named",
-                  "public-record-only"
-                ]
-              },
-              "reader": {
-                "type": "string"
-              },
-              "receipt": {
-                "type": "string"
-              },
-              "public_record_refs": {
-                "type": "array",
-                "uniqueItems": true,
-                "items": {
-                  "type": "string",
-                  "minLength": 1
-                }
-              }
             }
           },
           "decision_day_review": {

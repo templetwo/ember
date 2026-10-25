@@ -207,11 +207,10 @@ def parse_jsonl(data: bytes) -> list[dict]:
     return rows
 
 
-def validate_split(train: list[dict], heldout: list[dict], freeze_at: str, evidence_max_chars: int,
+def validate_split(train: list[dict], heldout: list[dict], evidence_max_chars: int,
                    robot_stop_claim_ids=(), *, pair_classes=("observed-decision",)):
     if not train or not heldout:
         raise InvalidCorpus("both train and heldout must be nonempty")
-    cut = timestamp(freeze_at)
     reserved = {normalize_claim_id(cid) for cid in robot_stop_claim_ids}
     # First-cut policy stays fixed. The actual row-admission test below consumes
     # the manifest value rather than a second hardcoded class comparison.
@@ -225,29 +224,19 @@ def validate_split(train: list[dict], heldout: list[dict], freeze_at: str, evide
         claims, inputs = set(), set()
         for pair in rows:
             validate_pair(pair, evidence_max_chars)
-            decision = timestamp(pair["recorded_at"])
-            if pair["recorded_at_precision"] == "day" and abs(
-                    (decision.astimezone(ZoneInfo("America/New_York")).date()
-                     - cut.astimezone(ZoneInfo("America/New_York")).date()).days) <= 1:
-                raise InvalidCorpus("day precision is too close to the freeze day")
-            if pair["recorded_at_precision"] == "bounded-by-records" and decision < cut <= timestamp(pair["review"]["decision_time_bounds"]["end_at"]):
-                raise InvalidCorpus("decision window crosses the freeze")
             if pair["pair_class"] not in admitted_classes:
                 raise InvalidCorpus("pair class is outside the first cut manifest")
             if pair["pair_id"] in all_ids:
                 raise InvalidCorpus("duplicate pair id")
             all_ids.add(pair["pair_id"])
             robot = pair["holdout"] == "robot_stop"
+            if robot and split == "train":
+                raise InvalidCorpus("reserved robot stop cannot enter training")
             linked_ids = linked_claim_ids(pair)
             if reserved & linked_ids and (split == "train" or not robot):
                 raise InvalidCorpus("reserved robot stop must be explicitly held out")
             if robot and not reserved.intersection(linked_ids):
                 raise InvalidCorpus("robot stop is absent from the reserved claim list")
-            before = timestamp(pair["recorded_at"]) < cut
-            if split == "train" and (robot or not before):
-                raise InvalidCorpus("held-out event in training split")
-            if split == "heldout" and before and not robot:
-                raise InvalidCorpus("pre-cut event in temporal heldout")
             claims.update(linked_ids)
             inputs.add(" ".join(pair["situation"].casefold().split()))
         claim_sets.append(claims)
@@ -285,11 +274,6 @@ def validate_source_index(rows: dict, index: dict):
             raise InvalidCorpus("source row and claim do not match the metadata index")
         if item["source_utc"] is None or item["timestamp_basis"] == "unresolved-vault-import" or item["review_holds"]:
             raise InvalidCorpus("source chronology or eligibility remains held")
-        screen = item["name_screen"]
-        if (screen["status"] not in ("no-person-named", "public-record-only")
-                or not screen["reader"].strip() or not screen["receipt"].strip()
-                or (screen["status"] == "public-record-only" and not screen["public_record_refs"])):
-            raise InvalidCorpus("source name screen is pending or held")
         if evidence and item["seed_backfill"]:
             raise InvalidCorpus("seed backfill cannot supply earlier evidence or a decision bound")
         return timestamp(item["source_utc"])
@@ -355,6 +339,6 @@ def load_manifest(path: Path):
         raise InvalidCorpus("release receipt does not bind this corpus, source index, policy, exclusions, and reader")
     rows = {name: parse_jsonl(read_bound_file(base, item)) for name, item in manifest["corpus"].items()}
     validate_source_index(rows, json_loads(source_index_raw))
-    validate_split(rows["train"], rows["heldout"], manifest["freeze_at"], manifest["constraints"]["evidence_max_chars"],
+    validate_split(rows["train"], rows["heldout"], manifest["constraints"]["evidence_max_chars"],
                    manifest["robot_stop_claim_ids"], pair_classes=manifest["constraints"]["pair_classes"])
     return manifest, rows, digest(manifest_bytes)

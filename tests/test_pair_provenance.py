@@ -61,7 +61,7 @@ class LabelLeakTests(unittest.TestCase):
 
     def test_normalized_label_overlap_is_refused_across_splits(self):
         train,held=splits();held[0]['review']['label_source_claim_id']=' '+train[0]['review']['label_source_claim_id'].upper()+' '
-        with self.assertRaisesRegex(InvalidCorpus,'overlap'):validate_split(train,held,CUT,4000)
+        with self.assertRaisesRegex(InvalidCorpus,'overlap'):validate_split(train,held,4000)
 
 
 class ObservedDecisionTests(unittest.TestCase):
@@ -74,7 +74,7 @@ class ObservedDecisionTests(unittest.TestCase):
         for p in train+held:
             p['pair_class']='observed-decision'
             p['review']['observed_act']='proceed' if p['target']['decision']=='OPEN' else 'stop'
-        validate_split(train,held,CUT,4000,pair_classes=['observed-decision'])
+        validate_split(train,held,4000,pair_classes=['observed-decision'])
 
     def test_disagreement_flags_are_derived_and_refused_in_either_split(self):
         for label,act,flag in (('OPEN','stop','over-stop'),('PAUSE','proceed','hindsight-stop'),('WITNESS','proceed','hindsight-stop')):
@@ -85,7 +85,7 @@ class ObservedDecisionTests(unittest.TestCase):
                 train,held=splits();(train,held)[index][0]['target']['decision']=label
                 (train,held)[index][0]['review']['observed_act']=act
                 with self.subTest(label=label,index=index),self.assertRaisesRegex(InvalidCorpus,'observed act'):
-                    validate_split(train,held,CUT,4000)
+                    validate_split(train,held,4000)
 
     def test_manifest_passes_its_class_constraint_to_split_validator(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -97,7 +97,7 @@ class ObservedDecisionTests(unittest.TestCase):
     def test_empty_or_ineligible_admission_constraint_is_refused(self):
         for classes in ([],['retrospective-rule']):
             train,held=splits()
-            with self.assertRaises(InvalidCorpus):validate_split(train,held,CUT,4000,pair_classes=classes)
+            with self.assertRaises(InvalidCorpus):validate_split(train,held,4000,pair_classes=classes)
 
     def test_baseline_counts_bind_label_shape_and_class_without_text(self):
         train,held=splits();train[0]['shape']='judged_gate';held[0]['shape']='ruling'

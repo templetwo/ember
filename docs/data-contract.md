@@ -106,8 +106,7 @@ only day precision carries the event-date fields.
 
 The manifest's `source_index` binds a metadata-only JSON file by byte hash. Its
 rows identify source rows and claims, canonical-record hashes, resolved
-`source_utc`, timestamp basis, seed-backfill status, review holds, and name-screen
-receipts. It contains no source bodies or person-name lists. Every evidence item
+`source_utc`, timestamp basis, seed-backfill status, and source-eligibility holds. It contains no source bodies or person-name lists. Every evidence item
 and label source must match a row and claim in this index. Evidence timestamps
 must equal the resolved source instant. Bounds and event-date supporting claims
 must resolve uniquely in the index; ambiguous variants stay held.
@@ -127,40 +126,46 @@ classification hold, rather than silently treating the row as eligible or
 asserting that the tag proves seed origin. Metadata inspection alone cannot
 settle those rows' provenance.
 
-Name status defaults to `pending`, never cleared by a detector's silence. A
-selected source requires a named review receipt with `no-person-named`, or
-`public-record-only` plus public-record references. `pending` and `held` refuse
-selection. The explicit cluster awaiting Anthony's names review retains its hold
-even if another screen field says clear. These fields record reviews; they do
-not authenticate public status or grant permission to read protected material.
-Private preparation binds supplied name and event-date reviews to the exact
-canonical source-record hash. Missing event-date reviews remain unresolved.
+Anthony's 2026-10-24 ruling, “names free. no flagging. no time cut,” removes
+L1b's general names-screen admission gate. The index has no `name_screen`, no
+name-review attestation, and no pending-names hold. Private preparation has no
+name-review input or flagging pass. This does not remove the standing children's
+names exclusion, the specifically reserved family name from the October 19
+ruling, or the four designated records' existing coupled-stakes handling.
+Source selection and release continue to follow those specific exclusions.
+Private preparation still binds event-date reviews to exact canonical source
+record hashes; missing event-date reviews remain unresolved.
 
 ## A manifest
 
 `config/manifest.template.json` is deliberately invalid until its pending values are replaced. Copy it into an ignored directory such as `local/corpus/`, alongside the files it names. Relative file paths must remain within that directory, including after symlink resolution.
 
-The manifest binds train and heldout JSONL byte hashes, the source metadata index, the freeze timestamp, reserved robot-stop claim IDs, release-review receipt, release-policy file, exclusion document hash, constraints, and the run's reader/cadence.
+The manifest binds train and heldout JSONL byte hashes, the source metadata index,
+`split_strategy: "claim-groups"`, reserved robot-stop claim IDs, release-review
+receipt, release-policy file, exclusion document hash, constraints, and the run's
+reader/cadence. `freeze_at` is no longer accepted. Temporal assignment, the
+one-day freeze guard, and the window-crossing-freeze guard have been removed,
+not left dormant. Timestamps still establish evidence-before-decision ordering,
+Eastern day floors, source-bound clocks, and valid decision windows.
 
-Training decisions must predate the freeze. Temporal heldout decisions must be at or after it. Reserved robot-stop decisions are always held out, including events before the freeze. Every reserved claim must occur in the heldout evidence or label-source provenance, and must be tagged `robot_stop`. No evidence or label-source claim, including an evidence-to-label match, or normalized identical situation may cross splits. Each training class must represent at least one quarter of the training rows. Both binary classes must occur in each split for balanced accuracy to be defined.
+Train and heldout may contain events from any date. Reserved robot-stop decisions
+are always held out. Every reserved claim must occur among heldout provenance
+and the corresponding pair must be tagged `robot_stop`. No linked claim or
+normalized identical situation may cross splits. Linked claims include every
+evidence claim, label source, clock decision proof, bounding claim and event-date
+basis, across roles. Related pairs sharing any of these claims travel together.
+Other related-event links still require explicit human grouping before assignment;
+the software cannot infer all semantic relationships from text. Training and
+validation subdivision enforces the same claim grouping, and review-only
+provenance stays out of model exports. Each training class must represent at
+least one quarter of the rows. Both binary classes must occur in each split.
 
-Related pairs sharing a label-source claim stay together even if their evidence
-windows differ. Other related-event links still need explicit human grouping before
-the split. A pre-decision evidence claim can predate the freeze while supporting a
-heldout decision; the decision selects the temporal split, and claim grouping
-prevents reusing that evidence in training. A later catch filing does not move an
-earlier decision into heldout. Training/validation subdivision must enforce the
-same evidence-plus-label grouping, and label-source IDs must stay out of exports.
-
-Grouping also includes clock decision claims, bounding claims and event-date supporting claims, across
-all roles. Shared evidence cannot cross splits even when label sources differ.
-A day-precision row is excluded from both splits if its Eastern calendar date is
-within one day of the freeze's Eastern calendar date, including reserved robot
-rows. A bounded window with start before the freeze and end at or after it is
-also excluded. These guards apply before ordinary temporal and robot assignment.
-Source-bound clock decisions keep exact-instant split semantics, including near
-the freeze; they do not inherit the day-precision uncertainty interval. A clock
-without its source binding cannot pass manifest loading.
+`docs/corpus-exclusions.md` preserves the historical build-spec block verbatim.
+Its temporal-cut clause is superseded for this first cut by the October 24 ruling;
+it must not be reintroduced through an old release policy or manifest. The
+remaining exclusions and designated-record handling stay in force. A release
+review must bind the current group-based policy and new source index, rather
+than silently reuse an older temporal or names-screen receipt.
 
 `release_review.status` must be `passed`. The separate receipt file has these fields:
 
@@ -175,7 +180,7 @@ without its source binding cannot pass manifest loading.
 }
 ```
 
-The policy file must be the reviewed release policy used for that cut, including the mirror's current withheld-path rules and the added time cut. Its format is not yet interpreted by the evaluator. It is hashed and bound through the review receipt. There is no receipt-creation command: software cannot grant itself a review. These receipts are attestations, not digital signatures or independently verified source truth.
+The policy file must be the reviewed release policy used for that cut, including current withheld-path rules as reconciled with the subsequent private-training rulings and group-based split. Its format is not yet interpreted by the evaluator. It is hashed and bound through the review receipt. There is no receipt-creation command: software cannot grant itself a review. These receipts are attestations, not digital signatures or independently verified source truth.
 
 ## Baseline reports
 

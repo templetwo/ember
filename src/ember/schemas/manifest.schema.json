@@ -6,13 +6,13 @@
   "required": [
     "schema_version",
     "purpose",
-    "freeze_at",
     "robot_stop_claim_ids",
     "corpus",
     "release_review",
     "constraints",
     "reader",
-    "source_index"
+    "source_index",
+    "split_strategy"
   ],
   "properties": {
     "schema_version": {
@@ -20,10 +20,6 @@
     },
     "purpose": {
       "const": "p0-baselines"
-    },
-    "freeze_at": {
-      "type": "string",
-      "format": "date-time"
     },
     "robot_stop_claim_ids": {
       "type": "array",
@@ -137,6 +133,9 @@
     },
     "source_index": {
       "$ref": "#/$defs/file"
+    },
+    "split_strategy": {
+      "const": "claim-groups"
     }
   },
   "$defs": {

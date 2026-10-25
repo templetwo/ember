@@ -33,7 +33,7 @@ Create the output directory first. Outputs use exclusive creation so an existing
 
 - One decision schema: `OPEN`, `PAUSE`, `WITNESS`; `HOLD` is rejected.
 - Reviewed pairs with source claim IDs, evidence windows, target receipts, and a named negation reviewer.
-- A strict time cut, source/evidence separation between splits, a reserved robot-stop claim list, duplicate detection, and the one-quarter training-class floor.
+- Claim/related-event grouping with source/evidence separation between splits, a reserved robot-stop claim list, duplicate detection, and the one-quarter training-class floor; no temporal cut.
 - Explicit evidence budgets. Oversize windows are rejected rather than clipped.
 - Always-stop, keyword-stop, and a length threshold fitted only on training rows. All use the same held-out balanced accuracy over `OPEN` versus `PAUSE` + `WITNESS`.
 - Reports binding corpus, manifest, release policy, release receipt, exclusions, code, dependency versions, constraints, and per-pair predictions to their hashes.

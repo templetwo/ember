@@ -153,7 +153,7 @@ def main(argv=None) -> int:
             "schema_version": "0.1", "instrument_version": __version__,
             "run_kind": "p0-baselines", "started_at": datetime.now(timezone.utc).isoformat(),
             "selftest": check, "provenance": runtime_provenance(), "manifest_sha256": manifest_hash,
-            "freeze_at": manifest["freeze_at"], "corpus": manifest["corpus"],
+            "split_strategy": manifest["split_strategy"], "corpus": manifest["corpus"],
             "constraints": manifest["constraints"], "release_review": manifest["release_review"],
             "reader": manifest["reader"], "train_pairs": len(rows["train"]), "heldout_pairs": len(rows["heldout"]),
             "result": run_baselines(rows["train"], rows["heldout"]),

@@ -54,9 +54,7 @@ def fixture_source_index(rows):
         for rid, cid, stamp in sources:
             items[rid] = {"source_row_id": rid, "claim_id": cid, "source_utc": stamp,
                           "record_sha256": "0" * 64, "timestamp_basis": "explicit-source-offset",
-                          "seed_backfill": False, "review_holds": [],
-                          "name_screen": {"status": "no-person-named", "reader": "test-fixture",
-                                          "receipt": "fixture-only", "public_record_refs": []}}
+                          "seed_backfill": False, "review_holds": []}
     return {"schema_version": "0.1", "rows": list(items.values())}
 
 
@@ -77,7 +75,7 @@ def fixture_manifest(base):
     exclusions_hash = digest((ROOT / "docs/corpus-exclusions.md").read_bytes())
     source_index = put("source-index.json", fixture_source_index(train + held))
     receipt = put("release.json", {"status": "passed", "reader": "fixture-reader", "source_index_sha256": source_index["sha256"], "corpus_sha256": {k: v["sha256"] for k, v in corpus.items()}, "policy_sha256": policy["sha256"], "exclusions_sha256": exclusions_hash})
-    manifest = {"schema_version": "0.1", "purpose": "p0-baselines", "freeze_at": CUT,
+    manifest = {"schema_version": "0.1", "purpose": "p0-baselines", "split_strategy": "claim-groups",
                 "source_index": source_index,
                 "robot_stop_claim_ids": ["fixture-claim-6"], "corpus": corpus,
                 "release_review": {"status": "passed", "reader": "fixture-reader", "receipt": receipt,
@@ -129,28 +127,28 @@ class ValidationTests(unittest.TestCase):
                 train, held = splits()
                 (train, held)[split][0]["pair_class"] = kind
                 with self.subTest(kind=kind, split=split), self.assertRaisesRegex(InvalidCorpus, "first cut"):
-                    validate_split(train, held, CUT, 4000)
+                    validate_split(train, held, 4000)
 
     def test_label_source_cannot_cross_splits_even_with_different_evidence(self):
         train, held = splits()
         held[0]["review"]["label_source_claim_id"] = train[0]["review"]["label_source_claim_id"]
         with self.assertRaisesRegex(InvalidCorpus, "overlap"):
-            validate_split(train, held, CUT, 4000)
+            validate_split(train, held, 4000)
 
     def test_label_source_overlapping_other_split_evidence_is_also_refused(self):
         train, held = splits()
         held[0]["review"]["label_source_claim_id"] = train[0]["evidence"][0]["claim_id"]
         with self.assertRaisesRegex(InvalidCorpus, "overlap"):
-            validate_split(train, held, CUT, 4000)
+            validate_split(train, held, 4000)
 
     def test_reserved_label_source_is_held_out(self):
         train, held = splits()
         held[0]["holdout"] = "robot_stop"
         reserved = [held[0]["review"]["label_source_claim_id"]]
-        validate_split(train, held, CUT, 4000, reserved)
+        validate_split(train, held, 4000, reserved)
         held[0]["holdout"] = "none"
         with self.assertRaises(InvalidCorpus):
-            validate_split(train, held, CUT, 4000, reserved)
+            validate_split(train, held, 4000, reserved)
 
     def test_valid_reviewed_pair(self):
         validate_pair(pair(1, "PAUSE"), 4000)
@@ -196,41 +194,40 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaises(InvalidCorpus):
             validate_pair(p, 4000)
 
-    def test_time_cut_is_strict(self):
+    def test_no_temporal_split(self):
         train, held = splits()
-        validate_split(train, held, CUT, 4000)
+        validate_split(train, held, 4000)
         train[0]["recorded_at"] = "2026-10-01T13:00:00Z"
-        with self.assertRaisesRegex(InvalidCorpus, "held-out event"):
-            validate_split(train, held, "2026-10-01T13:00:00Z", 4000)
+        validate_split(train, held, 4000)
 
     def test_evidence_overlap_rejected(self):
         train, held = splits()
         held[0]["evidence"].append(copy.deepcopy(train[0]["evidence"][0]))
         with self.assertRaises(InvalidCorpus):
-            validate_split(train, held, CUT, 4000)
+            validate_split(train, held, 4000)
 
     def test_normalized_duplicate_situation_rejected(self):
         train, held = splits()
         held[0]["situation"] = "  READ  "
         with self.assertRaises(InvalidCorpus):
-            validate_split(train, held, CUT, 4000)
+            validate_split(train, held, 4000)
 
     def test_duplicate_pair_id_rejected(self):
         train, held = splits()
         held[0]["pair_id"] = train[0]["pair_id"]
         with self.assertRaises(InvalidCorpus):
-            validate_split(train, held, CUT, 4000)
+            validate_split(train, held, 4000)
 
     def test_reserved_robot_event_cannot_be_training(self):
         train, held = splits()
         with self.assertRaises(InvalidCorpus):
-            validate_split(train, held, CUT, 4000, ["fixture-claim-1"])
+            validate_split(train, held, 4000, ["fixture-claim-1"])
 
     def test_quarter_floor_applies_per_training_class(self):
         train, held = splits()
         train.extend([pair(7, "OPEN"), pair(8, "OPEN")])
         with self.assertRaises(InvalidCorpus):
-            validate_split(train, held, CUT, 4000)
+            validate_split(train, held, 4000)
 
     def test_duplicate_json_keys_rejected(self):
         with self.assertRaises(InvalidCorpus):
