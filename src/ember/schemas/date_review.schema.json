@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ember:date_review:0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "proposed_by",
+    "source_row_id",
+    "record_sha256",
+    "event_date",
+    "claim_ids"
+  ],
+  "properties": {
+    "status": {
+      "enum": [
+        "proposed",
+        "attested"
+      ]
+    },
+    "proposed_by": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "source_row_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "record_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "event_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "claim_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "\\S"
+      }
+    },
+    "reader": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "receipt": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "proposal_notes": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "attested"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "reader",
+          "receipt"
+        ]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "reader"
+              ]
+            },
+            {
+              "required": [
+                "receipt"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -136,6 +136,52 @@ Source selection and release continue to follow those specific exclusions.
 Private preparation still binds event-date reviews to exact canonical source
 record hashes; missing event-date reviews remain unresolved.
 
+### Date proposals and attestations
+
+`date_review.schema.json` distinguishes `status: proposed` from `status: attested`.
+Both require `proposed_by`, `source_row_id`, `record_sha256`, `event_date` and
+`claim_ids`. A proposal may include `proposal_notes`, but cannot contain `reader`
+or an attestation `receipt`. Writing a proposed reader's name is not an approval.
+An attestation requires a nonblank `reader` and `receipt`; it preserves the
+proposal's authorship separately. The loader never converts a proposal into an
+attestation or fills a reader on an author's behalf.
+
+The index admits only attested date reviews. Each review must bind its enclosing
+source row and exact record hash, and its reader must equal the index's
+`attesting_seat` exactly. Private preparation obtains that context from the
+launcher's inherited seat identity, independently of the input review file;
+there is no command-line identity override. Missing context or a mismatched
+reader refuses ingestion. Review inputs may be JSONL review objects or a JSON
+dictionary keyed by source row. Old prose-only reader fields and proposals must
+remain in the authoring queue until the actual reader attests them.
+
+Offline replay checks the recorded attesting seat and review contents under the
+manifest/release hash binding. This is an attestation consistency check, not a
+digital signature, authentication of arbitrary process environments, or proof
+that a reviewer read the record. Changing both the index and its trusted release
+receipt can fabricate a new assertion; the release reviewer still verifies the
+attestation's provenance. A preparation run with no accepted reviews records no
+attesting seat and does not grant any date approval.
+
+### Referential stakes
+
+Private metadata preparation and the authoring queue inspect record text values
+for bounded references to protected drawers/material, designated records,
+coupled stakes, witness ledgers and related explicit terms. This screen runs even
+when existing protected/coupled flags are clear. A hit adds
+`referential-stakes-needs-review`, which blocks source admission; it never
+retrieves the referenced protected material or clears a hold automatically.
+Queue output contains rule names and source references, not source bodies.
+The index requires `stakes_screen_version: "explicit-references-v1"`; an older
+index without this preparation marker is refused and must be rebuilt. The marker
+is hash-bound preparation metadata, not an independently authenticated proof.
+
+This is a stakes-reference screen, not the removed general names screen. It does
+not use a protected-name list or classify people. It may flag harmless discussion
+and miss indirect descriptions or encodings. A negative result is not semantic
+clearance, and a positive result needs the appropriate human review; existing
+designation/coupling and specific exclusions remain in force.
+
 ## A manifest
 
 `config/manifest.template.json` is deliberately invalid until its pending values are replaced. Copy it into an ignored directory such as `local/corpus/`, alongside the files it names. Relative file paths must remain within that directory, including after symlink resolution.

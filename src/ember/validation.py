@@ -258,12 +258,26 @@ def validate_split(train: list[dict], heldout: list[dict], evidence_max_chars: i
             raise InvalidCorpus("OPEN and stop labels are both required in each split")
 
 
+def validate_date_attestation(review: dict, attesting_seat: str | None,
+                              source_row_id: str, record_sha256: str):
+    validate_schema("date_review", review)
+    if review["status"] != "attested":
+        raise InvalidCorpus("proposed date review cannot be admitted as an attestation")
+    if not attesting_seat or not attesting_seat.strip() or review["reader"] != attesting_seat:
+        raise InvalidCorpus("date-review reader is not the attesting seat")
+    if review["source_row_id"] != source_row_id or review["record_sha256"] != record_sha256:
+        raise InvalidCorpus("date attestation binds a different source row or record")
+
+
 def validate_source_index(rows: dict, index: dict):
     """Bind reviewed windows to metadata; never retrieve source bodies or names."""
     validate_schema("source_index", index)
     by_row, by_claim = {}, {}
     for item in index["rows"]:
         rid = item["source_row_id"]
+        if item.get("decision_day_review") is not None:
+            validate_date_attestation(item["decision_day_review"], index.get("attesting_seat"),
+                                      rid, item["record_sha256"])
         if rid in by_row:
             raise InvalidCorpus("duplicate source row in metadata index")
         by_row[rid] = item

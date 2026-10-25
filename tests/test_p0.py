@@ -55,7 +55,7 @@ def fixture_source_index(rows):
             items[rid] = {"source_row_id": rid, "claim_id": cid, "source_utc": stamp,
                           "record_sha256": "0" * 64, "timestamp_basis": "explicit-source-offset",
                           "seed_backfill": False, "review_holds": []}
-    return {"schema_version": "0.1", "rows": list(items.values())}
+    return {"schema_version": "0.1", "stakes_screen_version": "explicit-references-v1", "rows": list(items.values())}
 
 
 def fixture_manifest(base):

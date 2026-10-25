@@ -27,7 +27,7 @@ def index_for(p):
     def item(rid,cid,stamp):
         return dict(source_row_id=rid,claim_id=cid,source_utc=stamp,record_sha256='0'*64,
                     timestamp_basis='explicit-source-offset',seed_backfill=False,review_holds=[])
-    result = {'schema_version':'0.1','rows':[
+    result = {'schema_version':'0.1','stakes_screen_version':'explicit-references-v1','rows':[
         item(p['evidence'][0]['source_row_id'],p['evidence'][0]['claim_id'],p['evidence'][0]['recorded_at']),
         item(p['review']['label_source_row_id'],p['review']['label_source_claim_id'],'2026-09-11T00:00:00Z')]}
     if p['recorded_at_precision']=='clock':
@@ -69,8 +69,11 @@ class TemporalSourceTests(unittest.TestCase):
         basis.update(source_row_id='fixture-date-row',claim_id='fixture-event-date')
         index['rows'].append(basis)
         label=index['rows'][1]
-        label['decision_day_review']={'event_date':'2026-09-10','claim_ids':['fixture-event-date'],
-                                      'reader':'fixture-reader','receipt':'fixture-only'}
+        index['attesting_seat']='fixture-reader'
+        label['decision_day_review']={'status':'attested','proposed_by':'fixture-author',
+            'source_row_id':label['source_row_id'],'record_sha256':label['record_sha256'],
+            'event_date':'2026-09-10','claim_ids':['fixture-event-date'],
+            'reader':'fixture-reader','receipt':'fixture-only'}
         # The later label filing date is deliberately different from the event date.
         v.validate_source_index(rows,index)
         for key,value in (('event_date','2026-09-11'),('claim_ids',['absent']),('receipt',' ')):

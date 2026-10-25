@@ -17,8 +17,12 @@ def day_case():
     p['evidence'][0]['recorded_at']='2026-09-09T13:00:00Z'
     p['review'].update(event_date='2026-09-10',event_date_claim_ids=[p['evidence'][0]['claim_id']])
     index=index_for(p)
-    index['rows'][1]['decision_day_review']={'event_date':'2026-09-10',
-        'claim_ids':p['review']['event_date_claim_ids'],'reader':'fixture','receipt':'fixture-only'}
+    index['attesting_seat']='fixture'
+    label=index['rows'][1]
+    label['decision_day_review']={'status':'attested','proposed_by':'fixture-author',
+        'source_row_id':label['source_row_id'],'record_sha256':label['record_sha256'],
+        'event_date':'2026-09-10','claim_ids':p['review']['event_date_claim_ids'],
+        'reader':'fixture','receipt':'fixture-only'}
     return p,index
 
 

@@ -26,7 +26,7 @@ def selftest() -> dict:
         raise InvalidCorpus("evaluation interpreter must be Python 3.10.12 (see .python-version)")
     if importlib.metadata.version("jsonschema") != "4.25.0":
         raise InvalidCorpus("jsonschema version differs from evaluation pin")
-    for name in ("decision", "pair", "manifest", "candidate", "source_index"):
+    for name in ("decision", "pair", "manifest", "candidate", "source_index", "date_review"):
         validator(name)
     if score(["OPEN", "PAUSE"], ["PAUSE", "PAUSE"])["balanced_accuracy"] != 0.5:
         raise InvalidCorpus("balanced-accuracy selftest failed")
