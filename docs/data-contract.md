@@ -69,7 +69,12 @@ old trial bytes remain review inputs, not an accepted corpus.
 For `clock`, evidence may be filed at or before the decision instant.
 `review.decision_claim_id` is required, must differ from the label source, and
 must resolve to a unique eligible non-seed index row whose instant equals
-`recorded_at`. It may name an evidence claim or a separate review-only source.
+`recorded_at`. This source is review-only: its claim must not be an evidence item,
+pair source citation, or target citation. No reviewer attestation bypasses that
+exclusion. Its full ID and any hexadecimal prefix of 12 or more characters are
+also refused in model-facing text, using the same case/whitespace-normalized
+literal check as the label source. Reviewers still check for copied decision
+content or paraphrases that this bounded ID check cannot recognize.
 Exact UTC midnight and exact Eastern midnight are refused as clock values, even
 with a matching source, to prevent date-only placeholders bypassing day precision.
 The reviewer still establishes that the source records the decision itself.

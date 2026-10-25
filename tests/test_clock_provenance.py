@@ -8,7 +8,6 @@ from ember import validation as v
 
 def clock_pair():
     p=pair(1,'PAUSE','2026-09-10T13:00:00Z')
-    p['review']['decision_claim_id']=p['evidence'][0]['claim_id']
     return p
 
 

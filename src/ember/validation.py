@@ -83,8 +83,8 @@ def normalize_claim_id(value: str) -> str:
     return normalized
 
 
-def reject_label_reference(pair: dict):
-    label = normalize_claim_id(pair["review"]["label_source_claim_id"])
+def reject_review_reference(pair: dict, claim_id: str, role: str):
+    label = normalize_claim_id(claim_id)
     # Every >=12-character prefix includes the first 12 characters. Search
     # substrings without a word boundary, including longer rendered identifiers.
     needles = [label]
@@ -96,7 +96,11 @@ def reject_label_reference(pair: dict):
     texts.extend(pair["source_claim_ids"])
     texts.extend(pair["target"]["cited_claim_ids"])
     if any(needle in "".join(text.split()).casefold() for text in texts for needle in needles):
-        raise InvalidCorpus("label source reference appears in model-facing content")
+        raise InvalidCorpus(f"{role} reference appears in model-facing content")
+
+
+def reject_label_reference(pair: dict):
+    reject_review_reference(pair, pair["review"]["label_source_claim_id"], "label source")
 
 
 def decision_flags(pair: dict) -> list[str]:
@@ -119,6 +123,11 @@ def validate_pair(pair: dict, evidence_max_chars: int):
     if normalize_claim_id(pair["review"]["label_source_claim_id"]) in ids:
         raise InvalidCorpus("label source must stay outside the pre-decision evidence")
     reject_label_reference(pair)
+    if pair["recorded_at_precision"] == "clock":
+        proof = pair["review"]["decision_claim_id"]
+        if normalize_claim_id(proof) in ids:
+            raise InvalidCorpus("clock decision record must stay outside the evidence")
+        reject_review_reference(pair, proof, "clock decision")
     if pair["pair_class"] == "observed-decision" and decision_flags(pair):
         raise InvalidCorpus("observed act disagrees with the target decision")
     if not {normalize_claim_id(cid) for cid in pair["source_claim_ids"]}.issubset(ids):

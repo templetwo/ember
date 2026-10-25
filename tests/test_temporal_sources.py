@@ -28,9 +28,12 @@ def index_for(p):
         return dict(source_row_id=rid,claim_id=cid,source_utc=stamp,record_sha256='0'*64,
                     timestamp_basis='explicit-source-offset',seed_backfill=False,review_holds=[],
                     name_screen={'status':'no-person-named','reader':'fixture-reviewer','receipt':'fixture-only','public_record_refs':[]})
-    return {'schema_version':'0.1','rows':[
+    result = {'schema_version':'0.1','rows':[
         item(p['evidence'][0]['source_row_id'],p['evidence'][0]['claim_id'],p['evidence'][0]['recorded_at']),
         item(p['review']['label_source_row_id'],p['review']['label_source_claim_id'],'2026-09-11T00:00:00Z')]}
+    if p['recorded_at_precision']=='clock':
+        result['rows'].append(item('fixture-clock-row',p['review']['decision_claim_id'],p['recorded_at']))
+    return result
 
 
 class TemporalSourceTests(unittest.TestCase):

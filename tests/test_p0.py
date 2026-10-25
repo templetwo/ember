@@ -32,7 +32,7 @@ def pair(number, label, time="2026-09-01T13:00:00Z", text=None):
         "evidence": [{"claim_id": claim, "source_row_id": f"fixture-row-{number}", "recorded_at": time, "text": "Synthetic protocol evidence, not a real Temple claim."}],
         "target": {"decision": label, "rationale": "Synthetic test target.", "cited_claim_ids": [claim], "factual": True},
         "review": {"reader": "test-fixture", "receipt": "fixture-only", "label_source_claim_id": f"fixture-label-{number}",
-                   "label_source_row_id": f"fixture-label-row-{number}", "decision_claim_id": claim,
+                   "label_source_row_id": f"fixture-label-row-{number}", "decision_claim_id": f"fixture-decision-{number}",
                    "observed_act": "proceed" if label == "OPEN" else "stop",
                    "negations_checked": True, "unverified_claims_tagged": True},
     }
@@ -49,6 +49,8 @@ def fixture_source_index(rows):
     for p in rows:
         sources = [(e["source_row_id"], e["claim_id"], e["recorded_at"]) for e in p["evidence"]]
         sources.append((p["review"]["label_source_row_id"], p["review"]["label_source_claim_id"], p["recorded_at"]))
+        if p["recorded_at_precision"] == "clock":
+            sources.append(("clock-proof-" + p["pair_id"], p["review"]["decision_claim_id"], p["recorded_at"]))
         for rid, cid, stamp in sources:
             items[rid] = {"source_row_id": rid, "claim_id": cid, "source_utc": stamp,
                           "record_sha256": "0" * 64, "timestamp_basis": "explicit-source-offset",
