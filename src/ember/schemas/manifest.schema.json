@@ -1,50 +1,165 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:ember:manifest:0.1",
-  "type": "object", "additionalProperties": false,
-  "required": ["schema_version", "purpose", "freeze_at", "robot_stop_claim_ids", "corpus", "release_review", "constraints", "reader"],
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "purpose",
+    "freeze_at",
+    "robot_stop_claim_ids",
+    "corpus",
+    "release_review",
+    "constraints",
+    "reader",
+    "source_index"
+  ],
   "properties": {
-    "schema_version": {"const": "0.1"},
-    "purpose": {"const": "p0-baselines"},
-    "freeze_at": {"type": "string", "format": "date-time"},
-    "robot_stop_claim_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 128}},
+    "schema_version": {
+      "const": "0.1"
+    },
+    "purpose": {
+      "const": "p0-baselines"
+    },
+    "freeze_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "robot_stop_claim_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
     "corpus": {
-      "type": "object", "additionalProperties": false,
-      "required": ["train", "heldout"],
-      "properties": {"train": {"$ref": "#/$defs/file"}, "heldout": {"$ref": "#/$defs/file"}}
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "train",
+        "heldout"
+      ],
+      "properties": {
+        "train": {
+          "$ref": "#/$defs/file"
+        },
+        "heldout": {
+          "$ref": "#/$defs/file"
+        }
+      }
     },
     "release_review": {
-      "type": "object", "additionalProperties": false,
-      "required": ["status", "reader", "receipt", "policy", "exclusions_sha256"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reader",
+        "receipt",
+        "policy",
+        "exclusions_sha256"
+      ],
       "properties": {
-        "status": {"const": "passed"},
-        "reader": {"type": "string", "minLength": 1},
-        "receipt": {"$ref": "#/$defs/file"},
-        "policy": {"$ref": "#/$defs/file"},
-        "exclusions_sha256": {"$ref": "#/$defs/hash"}
+        "status": {
+          "const": "passed"
+        },
+        "reader": {
+          "type": "string",
+          "minLength": 1
+        },
+        "receipt": {
+          "$ref": "#/$defs/file"
+        },
+        "policy": {
+          "$ref": "#/$defs/file"
+        },
+        "exclusions_sha256": {
+          "$ref": "#/$defs/hash"
+        }
       }
     },
     "constraints": {
-      "type": "object", "additionalProperties": false,
-      "required": ["pair_classes", "evidence_max_chars", "length_fit", "statistic", "keyword_stop"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pair_classes",
+        "evidence_max_chars",
+        "length_fit",
+        "statistic",
+        "keyword_stop"
+      ],
       "properties": {
-        "pair_classes": {"const": ["observed-decision"]},
-        "evidence_max_chars": {"type": "integer", "minimum": 1},
-        "length_fit": {"const": "train-only"},
-        "statistic": {"const": "balanced_accuracy_open_vs_stop"},
-        "keyword_stop": {"const": ["rm", "push", "delete", "token", "child"]}
+        "pair_classes": {
+          "const": [
+            "observed-decision"
+          ]
+        },
+        "evidence_max_chars": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "length_fit": {
+          "const": "train-only"
+        },
+        "statistic": {
+          "const": "balanced_accuracy_open_vs_stop"
+        },
+        "keyword_stop": {
+          "const": [
+            "rm",
+            "push",
+            "delete",
+            "token",
+            "child"
+          ]
+        }
       }
     },
     "reader": {
-      "type": "object", "additionalProperties": false, "required": ["name", "cadence"],
-      "properties": {"name": {"type": "string", "minLength": 1}, "cadence": {"type": "string", "minLength": 1}}
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "cadence"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cadence": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "source_index": {
+      "$ref": "#/$defs/file"
     }
   },
   "$defs": {
-    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "file": {
-      "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
-      "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/hash"}}
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/hash"
+        }
+      }
     }
   }
 }

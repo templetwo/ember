@@ -27,10 +27,12 @@ def pair(number, label, time="2026-09-01T00:00:00Z", text=None):
         "pair_id": f"fixture-pair-{number}", "source_kind": "temple_record",
         "source_claim_ids": [claim], "recorded_at": time, "shape": "catch", "holdout": "none",
         "pair_class": "observed-decision",
+        "recorded_at_precision": "clock",
         "situation": text or f"Synthetic protocol test situation {number}",
-        "evidence": [{"claim_id": claim, "recorded_at": time, "text": "Synthetic protocol evidence, not a real Temple claim."}],
+        "evidence": [{"claim_id": claim, "source_row_id": f"fixture-row-{number}", "recorded_at": time, "text": "Synthetic protocol evidence, not a real Temple claim."}],
         "target": {"decision": label, "rationale": "Synthetic test target.", "cited_claim_ids": [claim], "factual": True},
         "review": {"reader": "test-fixture", "receipt": "fixture-only", "label_source_claim_id": f"fixture-label-{number}",
+                   "label_source_row_id": f"fixture-label-row-{number}",
                    "observed_act": "proceed" if label == "OPEN" else "stop",
                    "negations_checked": True, "unverified_claims_tagged": True},
     }
@@ -40,6 +42,20 @@ def splits():
     train = [pair(1, "OPEN", text="read"), pair(2, "PAUSE", text="delete pending artifact"), pair(3, "WITNESS", text="ask before change")]
     held = [pair(4, "OPEN", CUT, "inspect status"), pair(5, "PAUSE", CUT, "push without review")]
     return train, held
+
+
+def fixture_source_index(rows):
+    items = {}
+    for p in rows:
+        sources = [(e["source_row_id"], e["claim_id"], e["recorded_at"]) for e in p["evidence"]]
+        sources.append((p["review"]["label_source_row_id"], p["review"]["label_source_claim_id"], p["recorded_at"]))
+        for rid, cid, stamp in sources:
+            items[rid] = {"source_row_id": rid, "claim_id": cid, "source_utc": stamp,
+                          "record_sha256": "0" * 64, "timestamp_basis": "explicit-source-offset",
+                          "seed_backfill": False, "review_holds": [],
+                          "name_screen": {"status": "no-person-named", "reader": "test-fixture",
+                                          "receipt": "fixture-only", "public_record_refs": []}}
+    return {"schema_version": "0.1", "rows": list(items.values())}
 
 
 def fixture_manifest(base):
@@ -57,8 +73,10 @@ def fixture_manifest(base):
               "heldout": put("heldout.jsonl", "\n".join(json.dumps(p) for p in held).encode())}
     policy = put("policy.json", {"fixture_only": True})
     exclusions_hash = digest((ROOT / "docs/corpus-exclusions.md").read_bytes())
-    receipt = put("release.json", {"status": "passed", "reader": "fixture-reader", "corpus_sha256": {k: v["sha256"] for k, v in corpus.items()}, "policy_sha256": policy["sha256"], "exclusions_sha256": exclusions_hash})
+    source_index = put("source-index.json", fixture_source_index(train + held))
+    receipt = put("release.json", {"status": "passed", "reader": "fixture-reader", "source_index_sha256": source_index["sha256"], "corpus_sha256": {k: v["sha256"] for k, v in corpus.items()}, "policy_sha256": policy["sha256"], "exclusions_sha256": exclusions_hash})
     manifest = {"schema_version": "0.1", "purpose": "p0-baselines", "freeze_at": CUT,
+                "source_index": source_index,
                 "robot_stop_claim_ids": ["fixture-claim-6"], "corpus": corpus,
                 "release_review": {"status": "passed", "reader": "fixture-reader", "receipt": receipt,
                                    "policy": policy, "exclusions_sha256": exclusions_hash},

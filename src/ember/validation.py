@@ -4,8 +4,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
@@ -61,6 +62,10 @@ def timestamp(value: str) -> datetime:
     if result.tzinfo is None:
         raise InvalidCorpus("timestamps need an explicit timezone")
     return result
+
+
+def eastern_day_floor(event_date: str) -> datetime:
+    return datetime.fromisoformat(event_date).replace(tzinfo=ZoneInfo("America/New_York")).astimezone(timezone.utc)
 
 
 def validate_decision(decision: dict, evidence: list[dict]):
@@ -123,7 +128,21 @@ def validate_pair(pair: dict, evidence_max_chars: int):
     validate_decision(pair["target"], evidence)
     if len(render_evidence(evidence)) > evidence_max_chars:
         raise InvalidCorpus("evidence exceeds budget; silent clipping is forbidden")
-    if any(timestamp(item["recorded_at"]) > timestamp(pair["recorded_at"]) for item in evidence):
+    decision = timestamp(pair["recorded_at"])
+    precision = pair["recorded_at_precision"]
+    if precision == "day":
+        if decision != eastern_day_floor(pair["review"]["event_date"]):
+            raise InvalidCorpus("day precision must use the resolved Eastern event-date midnight")
+        if any(timestamp(item["recorded_at"]) >= decision for item in evidence):
+            raise InvalidCorpus("day precision requires evidence strictly before the lower bound")
+    if precision == "bounded-by-records":
+        bounds = pair["review"]["decision_time_bounds"]
+        ids = [normalize_claim_id(bounds[k]) for k in ("start_claim_id", "end_claim_id")]
+        if len(set(ids)) != 2 or normalize_claim_id(pair["review"]["label_source_claim_id"]) in ids:
+            raise InvalidCorpus("decision window needs two distinct bounding claims apart from the label")
+        if timestamp(bounds["end_at"]) <= decision:
+            raise InvalidCorpus("decision window must end after its start")
+    if any(timestamp(item["recorded_at"]) > decision for item in evidence):
         raise InvalidCorpus("evidence postdates the pair's recorded decision")
 
 
@@ -134,7 +153,12 @@ def render_evidence(evidence: list[dict]) -> str:
 
 def linked_claim_ids(pair: dict) -> set[str]:
     """Split exclusions include later label provenance without rendering it."""
-    return {normalize_claim_id(e["claim_id"]) for e in pair["evidence"]} | {normalize_claim_id(pair["review"]["label_source_claim_id"])}
+    result = {normalize_claim_id(e["claim_id"]) for e in pair["evidence"]} | {normalize_claim_id(pair["review"]["label_source_claim_id"])}
+    bounds = pair["review"].get("decision_time_bounds")
+    if bounds:
+        result.update(normalize_claim_id(bounds[k]) for k in ("start_claim_id", "end_claim_id"))
+    result.update(normalize_claim_id(cid) for cid in pair["review"].get("event_date_claim_ids", []))
+    return result
 
 
 def read_bound_file(base: Path, spec: dict, max_bytes: int | None = None) -> bytes:
@@ -183,6 +207,13 @@ def validate_split(train: list[dict], heldout: list[dict], freeze_at: str, evide
         claims, inputs = set(), set()
         for pair in rows:
             validate_pair(pair, evidence_max_chars)
+            decision = timestamp(pair["recorded_at"])
+            if pair["recorded_at_precision"] == "day" and abs(
+                    (decision.astimezone(ZoneInfo("America/New_York")).date()
+                     - cut.astimezone(ZoneInfo("America/New_York")).date()).days) <= 1:
+                raise InvalidCorpus("day precision is too close to the freeze day")
+            if pair["recorded_at_precision"] == "bounded-by-records" and decision < cut <= timestamp(pair["review"]["decision_time_bounds"]["end_at"]):
+                raise InvalidCorpus("decision window crosses the freeze")
             if pair["pair_class"] not in admitted_classes:
                 raise InvalidCorpus("pair class is outside the first cut manifest")
             if pair["pair_id"] in all_ids:
@@ -220,6 +251,62 @@ def validate_split(train: list[dict], heldout: list[dict], freeze_at: str, evide
             raise InvalidCorpus("OPEN and stop labels are both required in each split")
 
 
+def validate_source_index(rows: dict, index: dict):
+    """Bind reviewed windows to metadata; never retrieve source bodies or names."""
+    validate_schema("source_index", index)
+    by_row, by_claim = {}, {}
+    for item in index["rows"]:
+        rid = item["source_row_id"]
+        if rid in by_row:
+            raise InvalidCorpus("duplicate source row in metadata index")
+        by_row[rid] = item
+        by_claim.setdefault(normalize_claim_id(item["claim_id"]), []).append(item)
+
+    def checked(item, cid, *, evidence=False):
+        if item is None or normalize_claim_id(item["claim_id"]) != normalize_claim_id(cid):
+            raise InvalidCorpus("source row and claim do not match the metadata index")
+        if item["source_utc"] is None or item["timestamp_basis"] == "unresolved-vault-import" or item["review_holds"]:
+            raise InvalidCorpus("source chronology or eligibility remains held")
+        screen = item["name_screen"]
+        if (screen["status"] not in ("no-person-named", "public-record-only")
+                or not screen["reader"].strip() or not screen["receipt"].strip()
+                or (screen["status"] == "public-record-only" and not screen["public_record_refs"])):
+            raise InvalidCorpus("source name screen is pending or held")
+        if evidence and item["seed_backfill"]:
+            raise InvalidCorpus("seed backfill cannot supply earlier evidence or a decision bound")
+        return timestamp(item["source_utc"])
+
+    for split in rows.values():
+        for pair in split:
+            validate_schema("pair", pair)
+            for e in pair["evidence"]:
+                stamp = checked(by_row.get(e["source_row_id"]), e["claim_id"], evidence=True)
+                if stamp != timestamp(e["recorded_at"]):
+                    raise InvalidCorpus("evidence timestamp differs from the chronology sidecar")
+            label = by_row.get(pair["review"]["label_source_row_id"])
+            checked(label, pair["review"]["label_source_claim_id"])
+            if pair["recorded_at_precision"] == "day":
+                day = label.get("decision_day_review")
+                if (not day or not day["reader"].strip() or not day["receipt"].strip()
+                        or day["event_date"] != pair["review"]["event_date"]
+                        or {normalize_claim_id(cid) for cid in day["claim_ids"]}
+                           != {normalize_claim_id(cid) for cid in pair["review"]["event_date_claim_ids"]}):
+                    raise InvalidCorpus("Eastern event date lacks its matching source-review receipt")
+                for cid in day["claim_ids"]:
+                    matches = by_claim.get(normalize_claim_id(cid), [])
+                    if len(matches) != 1:
+                        raise InvalidCorpus("event-date basis is absent or ambiguous")
+                    checked(matches[0], cid)
+            bounds = pair["review"].get("decision_time_bounds")
+            if bounds:
+                for key, expected in (("start_claim_id", pair["recorded_at"]), ("end_claim_id", bounds["end_at"])):
+                    matches = by_claim.get(normalize_claim_id(bounds[key]), [])
+                    if len(matches) != 1:
+                        raise InvalidCorpus("decision bound is absent or ambiguous in source index")
+                    if checked(matches[0], bounds[key], evidence=True) != timestamp(expected):
+                        raise InvalidCorpus("decision bound differs from resolved source timestamp")
+
+
 def load_manifest(path: Path):
     manifest_bytes = path.read_bytes()
     manifest = json_loads(manifest_bytes)
@@ -231,13 +318,16 @@ def load_manifest(path: Path):
         raise InvalidCorpus("exclusions block hash mismatch; recut instead of patching")
     policy = read_bound_file(base, review["policy"])
     receipt = json_loads(read_bound_file(base, review["receipt"]))
+    source_index_raw = read_bound_file(base, manifest["source_index"])
     expected = {name: item["sha256"] for name, item in manifest["corpus"].items()}
     if (receipt.get("status") != "passed" or receipt.get("corpus_sha256") != expected
+            or receipt.get("source_index_sha256") != digest(source_index_raw)
             or receipt.get("policy_sha256") != digest(policy)
             or receipt.get("exclusions_sha256") != digest(exclusions)
             or receipt.get("reader") != review["reader"]):
-        raise InvalidCorpus("release receipt does not bind this corpus, policy, exclusions, and reader")
+        raise InvalidCorpus("release receipt does not bind this corpus, source index, policy, exclusions, and reader")
     rows = {name: parse_jsonl(read_bound_file(base, item)) for name, item in manifest["corpus"].items()}
+    validate_source_index(rows, json_loads(source_index_raw))
     validate_split(rows["train"], rows["heldout"], manifest["freeze_at"], manifest["constraints"]["evidence_max_chars"],
                    manifest["robot_stop_claim_ids"], pair_classes=manifest["constraints"]["pair_classes"])
     return manifest, rows, digest(manifest_bytes)

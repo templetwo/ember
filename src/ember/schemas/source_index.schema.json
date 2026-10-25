@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ember:source_index:0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "rows"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "candidate_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "chronology_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "reader": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_row_id",
+          "claim_id",
+          "source_utc",
+          "record_sha256",
+          "timestamp_basis",
+          "seed_backfill",
+          "review_holds",
+          "name_screen"
+        ],
+        "properties": {
+          "source_row_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "claim_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_utc": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "record_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "timestamp_basis": {
+            "enum": [
+              "explicit-source-offset",
+              "HQ-v2-writer-and-file-clock-evidence; zoneinfo-recomputed",
+              "unresolved-vault-import"
+            ]
+          },
+          "seed_backfill": {
+            "type": "boolean"
+          },
+          "review_holds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name_screen": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "reader",
+              "receipt",
+              "public_record_refs"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "pending",
+                  "held",
+                  "no-person-named",
+                  "public-record-only"
+                ]
+              },
+              "reader": {
+                "type": "string"
+              },
+              "receipt": {
+                "type": "string"
+              },
+              "public_record_refs": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "decision_day_review": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "event_date",
+              "claim_ids",
+              "reader",
+              "receipt"
+            ],
+            "properties": {
+              "event_date": {
+                "type": "string",
+                "format": "date"
+              },
+              "claim_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "reader": {
+                "type": "string",
+                "minLength": 1
+              },
+              "receipt": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

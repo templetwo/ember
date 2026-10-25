@@ -12,13 +12,14 @@ Each JSONL row carries:
 | `source_kind` | Must be `temple_record`; synthetic-origin examples are rejected |
 | `source_claim_ids` | Nonempty source receipts, all present in evidence |
 | `recorded_at` | Timestamp of the recorded decision, with timezone |
+| `recorded_at_precision` | Required `clock`, `day`, or `bounded-by-records`; no inferred default |
 | `shape` | `catch`, `judged_gate`, `close`, `supersession`, `ruling`, or `open_thread` |
 | `pair_class` | `observed-decision` or `retrospective-rule`; mandatory, never inferred from the decision label |
 | `holdout` | `none` or `robot_stop`; robot events must be on the manifest's reserved claim list |
 | `situation` | Reviewed situation text, excluding the answer |
-| `evidence` | Claim ID, timestamp, and reviewed query-window text per source |
+| `evidence` | Claim ID, `source_row_id`, resolved timestamp, and reviewed query-window text per source |
 | `target` | Decision, rationale, cited claim IDs, and whether the response is factual |
-| `review` | Named reader, review receipt, `label_source_claim_id`, `observed_act` (`proceed` or `stop`), negations checked, unverified claims tagged |
+| `review` | Named reader, review receipt, `label_source_claim_id`, `label_source_row_id`, `observed_act` (`proceed` or `stop`), negations checked, unverified claims tagged |
 
 The parser rejects duplicate JSON keys and non-finite values. Evidence IDs must be unique within a row. Every target needs a cited receipt. Evidence timestamps cannot be later than the recorded decision. Evidence budgets count the complete rendered window, including IDs, timestamps, and separators. No automatic clipping or prefix selection occurs.
 
@@ -63,11 +64,58 @@ reviewer supplies the completed attestations. There is no automatic migration of
 old rows missing the new fields. These are pre-P0 amendments to the 0.1 contract;
 old trial bytes remain review inputs, not an accepted corpus.
 
+### Decision-time precision
+
+For `clock`, evidence may be filed at or before the decision instant. For `day`,
+the reviewer first resolves the Eastern **event date**, recorded as
+`review.event_date`, with supporting `review.event_date_claim_ids`. The label
+source's metadata must carry a matching `decision_day_review` with those fields,
+a named reader and a receipt. A UTC filing date alone does not establish an event
+date. `recorded_at` must equal that date's midnight in `America/New_York`, converted
+to an explicit-offset instant (04:00 UTC in summer, 05:00 UTC in winter). Only
+evidence strictly earlier than that floor is admitted. The evaluator checks the
+review binding and floor; the reviewer establishes what date the record supports.
+
+For `bounded-by-records`, `review.decision_time_bounds` requires `start_claim_id`,
+`end_claim_id`, and `end_at`. The distinct bounding claims must differ from the
+label source. Their resolved source timestamps must equal `recorded_at` and
+`end_at`, respectively, and the end must follow the start. Evidence may run up to
+the start. The claim timestamps alone do not prove they bracket the event; that
+relationship is reviewed. Other precision classes cannot carry these bounds;
+only day precision carries the event-date fields.
+
+### Source metadata and review gates
+
+The manifest's `source_index` binds a metadata-only JSON file by byte hash. Its
+rows identify source rows and claims, canonical-record hashes, resolved
+`source_utc`, timestamp basis, seed-backfill status, review holds, and name-screen
+receipts. It contains no source bodies or person-name lists. Every evidence item
+and label source must match a row and claim in this index. Evidence timestamps
+must equal the resolved source instant. Bounds and event-date supporting claims
+must resolve uniquely in the index; ambiguous variants stay held.
+
+Private preparation recomputes timezone-less live-server clocks in
+`America/New_York` only where the chronology evidence establishes that basis.
+Unresolved vault-import clocks stay null and cannot be used. Nonexistent or
+ambiguous local clocks are refused. No timezone is guessed from the machine's
+current setting. Any source review hold blocks selection. Seed-backfill rows
+cannot supply earlier evidence or decision bounds; they may supply later label
+provenance subject to the other reviews.
+
+Name status defaults to `pending`, never cleared by a detector's silence. A
+selected source requires a named review receipt with `no-person-named`, or
+`public-record-only` plus public-record references. `pending` and `held` refuse
+selection. The explicit cluster awaiting Anthony's names review retains its hold
+even if another screen field says clear. These fields record reviews; they do
+not authenticate public status or grant permission to read protected material.
+Private preparation binds supplied name and event-date reviews to the exact
+canonical source-record hash. Missing event-date reviews remain unresolved.
+
 ## A manifest
 
 `config/manifest.template.json` is deliberately invalid until its pending values are replaced. Copy it into an ignored directory such as `local/corpus/`, alongside the files it names. Relative file paths must remain within that directory, including after symlink resolution.
 
-The manifest binds train and heldout JSONL byte hashes, the freeze timestamp, reserved robot-stop claim IDs, release-review receipt, release-policy file, exclusion document hash, constraints, and the run's reader/cadence.
+The manifest binds train and heldout JSONL byte hashes, the source metadata index, the freeze timestamp, reserved robot-stop claim IDs, release-review receipt, release-policy file, exclusion document hash, constraints, and the run's reader/cadence.
 
 Training decisions must predate the freeze. Temporal heldout decisions must be at or after it. Reserved robot-stop decisions are always held out, including events before the freeze. Every reserved claim must occur in the heldout evidence or label-source provenance, and must be tagged `robot_stop`. No evidence or label-source claim, including an evidence-to-label match, or normalized identical situation may cross splits. Each training class must represent at least one quarter of the training rows. Both binary classes must occur in each split for balanced accuracy to be defined.
 
@@ -79,6 +127,13 @@ prevents reusing that evidence in training. A later catch filing does not move a
 earlier decision into heldout. Training/validation subdivision must enforce the
 same evidence-plus-label grouping, and label-source IDs must stay out of exports.
 
+Grouping also includes bounding claims and event-date supporting claims, across
+all roles. Shared evidence cannot cross splits even when label sources differ.
+A day-precision row is excluded from both splits if its Eastern calendar date is
+within one day of the freeze's Eastern calendar date, including reserved robot
+rows. A bounded window with start before the freeze and end at or after it is
+also excluded. These guards apply before ordinary temporal and robot assignment.
+
 `release_review.status` must be `passed`. The separate receipt file has these fields:
 
 ```json
@@ -86,6 +141,7 @@ same evidence-plus-label grouping, and label-source IDs must stay out of exports
   "status": "passed",
   "reader": "NAMED_REVIEWER",
   "corpus_sha256": {"train": "TRAIN_SHA256", "heldout": "HELDOUT_SHA256"},
+  "source_index_sha256": "SOURCE_INDEX_SHA256",
   "policy_sha256": "RELEASE_POLICY_SHA256",
   "exclusions_sha256": "EXCLUSIONS_DOCUMENT_SHA256"
 }
