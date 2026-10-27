@@ -29,6 +29,8 @@ def allowed(path):
         return True
     if p.parts[0] == "docs":
         return p.suffix == ".md"
+    if p.parts[0] == "distillation":
+        return len(p.parts) == 2 and p.suffix in {".md", ".json"}
     if p.parts[0] in {"scripts", "tests"}:
         return p.suffix == ".py"
     if path.startswith("src/ember/"):

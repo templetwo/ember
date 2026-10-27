@@ -5,6 +5,7 @@ This is a pre-P0 scaffold, not a trained model or an authorized Temple seat.
 - Read `README.md`, `docs/p0-checklist.md`, and `docs/corpus-exclusions.md` before changing corpus or evaluation code.
 - Keep the exclusion block verbatim across revisions. A changed upstream release policy requires a new corpus cut.
 - Real source bodies, datasets, local audit receipts, grants, credentials, and model artifacts stay outside version control. Do not read the protected drawer to construct tests or filters.
+- The one exception is `distillation/`: constructed teaching drafts that Anthony released to this repository by name (first file 2026-10-27). They are not corpus rows; do not feed them to the evaluator or a trainer without a reviewed mapping into the data contract.
 - Keep decision labels in `src/ember/schemas/decision.schema.json`. Validate at ingestion. Never silently translate HOLD into PAUSE.
 - Fit controls on training rows only. Preserve held-out denominators, hashes, constraints, predictions, and the named reader in reports.
 - Corpus release approval is a separate, explicit reviewer attestation. Structural validation is not a privacy clearance or a semantic judgment.
