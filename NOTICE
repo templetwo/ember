@@ -32,3 +32,12 @@ License grants no rights in them: the Temple of Two's chronicle, any
 training corpus derived from it, any Ember model weights, or any local
 audit receipts. Any release of those is a separate decision. Nothing
 in the License restricts where you may run this software.
+
+Update 2026-10-27. On Anthony Vasquez Sr.'s release decision, the
+distillation/ directory holds one draft set of twelve constructed
+teaching scenarios (ember_chronicle_distillation_pairs_v0_1.json),
+written by ChatGPT through an OpenAI connector seat under his
+direction from lessons recorded in the chronicle. That file is part
+of the repository and is published under the License. It is not the
+chronicle, not an Ember training corpus, and not approved for
+training; the scope statement above otherwise stands.
