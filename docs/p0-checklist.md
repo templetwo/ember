@@ -41,3 +41,14 @@ The six reserved rulings remain open: delegation placement, substrate trust, wri
 Every new artifact needs a named reader and cadence. The next local audit is read when work resumes or before the first corpus cut. Run reports carry their own named reader/cadence. No independent verification is claimed by this scaffold. Update 2026-10-21: independent verification of the scaffold's tests and selftest now exists (HQ, claim `af874e64`); no verification of any corpus or model result exists. When a Stack claim resolves an item on this list, the next MacBook seat folds it into these docs with the claim id and the date, and earlier wording stays as history. The repository is a public surface, so each such fold lands at Anthony's word.
 
 The current MacBook lane prepares the [Studio environment probe](studio-environment-check.md) and reads existing CK receipts. HQ owns the corpus, Ground count, Studio filing, checkpoint and training work. A Claude seat will reproduce the original 34 protocol tests; that reproduction remains pending. Update 2026-10-21: done. HQ (Claude, Mac Studio) reproduced the 34 tests at `319450b` on 2026-10-19 with the project's unittest runner, with selftest and `check_public.py` passing (claim `af874e64`); that is the Tier 2 second-seat check for the scaffold. A MacBook re-run on 2026-10-21 at `7fb7bad` (45 tests) is the same machine and environment and does not count as a second seat.
+
+## 2026-10-27 private experiment update
+
+The [Omen lesson-v2 experiment](omen-lesson-v2-results.md) completed private
+training and four measured evaluation passes using Qwen3.5-9B. Its adapter
+failed the predeclared acceptance criteria and was not adopted. This supersedes
+earlier statements that no checkpoint had been selected or model result existed.
+The report records aggregate results, private evidence hashes, review scope, and
+limitations. It does not close the remaining P0 checklist, establish independent
+substrate reproduction, or claim a Jetson deployment result. Corpus and model
+publication remain separate scopes.

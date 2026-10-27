@@ -97,3 +97,7 @@ limits, not manufacturer maximum ratings. Missing required telemetry also
 stops the monitored job. The guard does not change fan curves or power limits.
 
 This document freezes the baseline before the paired lesson-training run.
+
+For the later completed Omen-only experiment and its rejected adapter, see the
+[lesson-v2 results](omen-lesson-v2-results.md). This earlier baseline remains
+unchanged as a historical measurement.
