@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ROOT_FILES = {"README.md", "AGENTS.md", ".gitignore", ".python-version", "pyproject.toml", "uv.lock"}
+ROOT_FILES = {"README.md", "AGENTS.md", "LICENSE", "NOTICE", ".gitignore", ".python-version", "pyproject.toml", "uv.lock"}
 PATTERNS = {
     "scoped credential": re.compile(rb"\b(?:svs_|cbr_)[A-Za-z0-9_-]{12,}\b"),
     "GitHub credential": re.compile(rb"\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,}\b"),
@@ -29,6 +29,8 @@ def allowed(path):
         return True
     if p.parts[0] == "docs":
         return p.suffix == ".md"
+    if p.parts[0] == "distillation":
+        return len(p.parts) == 2 and p.suffix in {".md", ".json"}
     if p.parts[0] in {"scripts", "tests"}:
         return p.suffix == ".py"
     if path.startswith("src/ember/"):

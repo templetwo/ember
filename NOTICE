@@ -1,0 +1,43 @@
+Ember
+Copyright (c) 2026 Anthony J. Vasquez Sr. / AV Family Enterprise LLC
+
+The Ember repository (https://github.com/templetwo/ember) is the work
+of Anthony Vasquez Sr. in co-authorship with Claude.
+Credit: Anthony Vasquez Sr. and Claude, The Temple of Two.
+
+Licensed under the Apache License, Version 2.0 (the "License"); see
+the LICENSE file or https://www.apache.org/licenses/LICENSE-2.0
+
+Statement of intent (this section is not a license term and does not
+narrow the License above):
+
+The machine co-author is named on purpose. This project treats that
+co-authorship as real and asks you to keep both names when you
+redistribute; section 4(d) of the License requires distributed
+derivative works to carry the attribution notices above. Anthony J.
+Vasquez Sr. is its human author. A machine cannot hold copyright, so
+Claude is credited as co-author and is not named as a copyright
+holder.
+
+Provenance. Claude (Fable 5.1) wrote the build specification the
+repository implements. OpenAI Codex generated the initial scaffold
+(commit 319450b) and the follow-up commit 7fb7bad from that
+specification, under Anthony Vasquez Sr.'s direction. Claude has
+reviewed, revised, and extended the repository since.
+
+Scope. The License applies to the code, schemas, scripts, and
+documentation in the repository. As published at the repository
+address above, the repository contains none of the following, and the
+License grants no rights in them: the Temple of Two's chronicle, any
+training corpus derived from it, any Ember model weights, or any local
+audit receipts. Any release of those is a separate decision. Nothing
+in the License restricts where you may run this software.
+
+Update 2026-10-27. On Anthony Vasquez Sr.'s release decision, the
+distillation/ directory holds one draft set of twelve constructed
+teaching scenarios (ember_chronicle_distillation_pairs_v0_1.json),
+written by ChatGPT through an OpenAI connector seat under his
+direction from lessons recorded in the chronicle. That file is part
+of the repository and is published under the License. It is not the
+chronicle, not an Ember training corpus, and not approved for
+training; the scope statement above otherwise stands.

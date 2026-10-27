@@ -375,6 +375,8 @@ class PublicCheckTests(unittest.TestCase):
         check = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(check)
         self.assertTrue(check.allowed("src/ember/schemas/pair.schema.json"))
+        self.assertTrue(check.allowed("LICENSE"))
+        self.assertTrue(check.allowed("NOTICE"))
         self.assertFalse(check.allowed("local/audit/private.json"))
         self.assertFalse(check.allowed("corpus/train.jsonl"))
         self.assertFalse(check.allowed("models/adapter.safetensors"))
@@ -384,6 +386,18 @@ class PublicCheckTests(unittest.TestCase):
         self.assertFalse(check.PATTERNS["bare 43-character stem"].search(b"x" * 64))
         self.assertTrue(check.PATTERNS["Homebrew interpreter path"].search(b"/opt/home" + b"brew/bin/python3.14"))
         self.assertFalse(check.PATTERNS["Homebrew interpreter path"].search(b"Homebrew Python 3.14 user-site"))
+
+    def test_distillation_paths(self):
+        spec = importlib.util.spec_from_file_location("check_public", ROOT / "scripts/check_public.py")
+        check = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(check)
+        self.assertTrue(check.allowed("distillation/README.md"))
+        self.assertTrue(check.allowed("distillation/ember_chronicle_distillation_pairs_v0_1.json"))
+        self.assertFalse(check.allowed("distillation/train.jsonl"))
+        self.assertFalse(check.allowed("distillation/adapter.safetensors"))
+        self.assertFalse(check.allowed("distillation/nested/pairs.json"))
+        self.assertFalse(check.allowed("data/pairs.json"))
+        self.assertFalse(check.allowed("corpus/pairs.json"))
 
     def test_scanner_reads_staged_bytes_even_if_worktree_is_cleaned(self):
         spec = importlib.util.spec_from_file_location("check_public", ROOT / "scripts/check_public.py")
